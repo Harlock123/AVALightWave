@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- AVALightWave's MCP server: the engine's scene tools (a Layout-only profile of AVA Modeler's server), AVALightWave's
+       own tools (replacing and saving objects, the hub) and recipes for scene work, and the AI Chat's prompt. No UI. -->
+  <PropertyGroup>
+    <RootNamespace>AVALightWave.Mcp</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AVALightWave.Core\AVALightWave.Core.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Mcp\AVAModeler.Mcp.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AVALightWave.Mcp.Tests" />
+  </ItemGroup>
+</Project>
