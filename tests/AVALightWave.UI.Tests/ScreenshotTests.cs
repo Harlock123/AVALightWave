@@ -85,6 +85,7 @@ public class ScreenshotTests
         using var _ = bench;
         w.Session.SetFrame(1);
         var ball = w.Session.Scene.Objects.Single(o => o.Name == "Ball");
+        w.Session.Select(ball);
         w.ShowPanel("Surfaces");
         ((SurfacesPanel)w.CurrentPanel!).Choose(ball);
         w.Document.EditSurface(ball, 0, "Ball Colour", s => s.Color = new AVAModeler.Core.Rgb(40, 110, 220));
