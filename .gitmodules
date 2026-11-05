@@ -1,0 +1,4 @@
+[submodule "external/AVAModeler"]
+	path = external/AVAModeler
+	url = https://github.com/Harlock123/AVAModeler.git
+	branch = main

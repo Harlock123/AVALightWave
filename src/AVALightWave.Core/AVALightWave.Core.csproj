@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- AVALightWave without its window: the scene document (scenes, objects, links), the Scene Editor's outline, edit
+       modes, settings, and AVALightWave's end of the hub. No UI. Built on the engine (external/AVAModeler). -->
+  <PropertyGroup>
+    <RootNamespace>AVALightWave</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Layout\AVAModeler.Layout.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Formats\AVAModeler.Formats.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Hub\AVAModeler.Hub.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AVALightWave.Core.Tests" />
+    <InternalsVisibleTo Include="AVALightWave.UI.Tests" />
+  </ItemGroup>
+</Project>

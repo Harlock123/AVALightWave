@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/AVALightWave.Core/AVALightWave.Core.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/AVALightWave.Core.Tests/AVALightWave.Core.Tests.csproj" />
+  </Folder>
+</Solution>
