@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The application: AVALightWave's window (a standalone Layout in the classic spirit), its panels, the hub and the
+       AI Chat; given the mcp switch, the MCP server instead. The engine is external/AVAModeler. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>AVALightWave</AssemblyName>
+    <RootNamespace>AVALightWave</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.4" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.4" />
+    <ProjectReference Include="..\AVALightWave.Core\AVALightWave.Core.csproj" />
+    <ProjectReference Include="..\AVALightWave.Mcp\AVALightWave.Mcp.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Layout.UI\AVAModeler.Layout.UI.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Chat.UI\AVAModeler.Chat.UI.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="AVALightWave.UI.Tests" />
+  </ItemGroup>
+</Project>

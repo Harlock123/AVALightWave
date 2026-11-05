@@ -2,9 +2,11 @@
   <Folder Name="/src/">
     <Project Path="src/AVALightWave.Core/AVALightWave.Core.csproj" />
     <Project Path="src/AVALightWave.Mcp/AVALightWave.Mcp.csproj" />
+    <Project Path="src/AVALightWave/AVALightWave.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/AVALightWave.Core.Tests/AVALightWave.Core.Tests.csproj" />
     <Project Path="tests/AVALightWave.Mcp.Tests/AVALightWave.Mcp.Tests.csproj" />
+    <Project Path="tests/AVALightWave.UI.Tests/AVALightWave.UI.Tests.csproj" />
   </Folder>
 </Solution>
