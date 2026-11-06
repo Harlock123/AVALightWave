@@ -34,7 +34,7 @@ public abstract class LayoutPanel : StackPanel
 
     protected static TextBlock Heading(string text) => new() { Text = text, FontWeight = FontWeight.Bold, Foreground = Look.Text, FontSize = 14, Margin = new Thickness(0, 0, 0, 4) };
     protected static TextBlock Label(string text) => new() { Text = text, Foreground = Look.Text, FontSize = 11, Margin = new Thickness(0, 4, 0, 0) };
-    protected static TextBlock Note(string text) => new() { Text = text, Foreground = Look.Text, Opacity = 0.75, FontSize = 11, TextWrapping = TextWrapping.Wrap };
+    internal static TextBlock Note(string text) => new() { Text = text, Foreground = Look.Text, Opacity = 0.75, FontSize = 11, TextWrapping = TextWrapping.Wrap };
     protected static string F(double v) => v.ToString("0.####", CultureInfo.InvariantCulture);
 
     protected static WrapPanel Buttons(params Button[] buttons)
@@ -45,7 +45,7 @@ public abstract class LayoutPanel : StackPanel
     }
 
     /// <summary>A number box that applies its value on Enter or on leaving it, only when it changed.</summary>
-    protected static TextBox NumberBox(double value, Action<double> set, string? name = null)
+    internal static TextBox NumberBox(double value, Action<double> set, string? name = null)
     {
         var box = new TextBox { Text = F(value), FontSize = 11, Name = name };
         var applied = box.Text;
@@ -103,7 +103,7 @@ public sealed class ScenePanel : LayoutPanel
 /// can be added, and the chosen item's settings (the engine's item panel, with an object's file and the hub's
 /// Edit in Modeler).
 /// </summary>
-public sealed class ItemsPanel : LayoutPanel
+public sealed partial class ItemsPanel : LayoutPanel
 {
     private readonly ListBox _list = new() { MaxHeight = 180, FontSize = 12 };
     private readonly EditMode _mode;
@@ -223,10 +223,12 @@ public sealed class ItemsPanel : LayoutPanel
     /// <summary>An object's file and state, under its settings.</summary>
     private void Extras(SceneItem item, ItemPropertiesPanel panel)
     {
+        if (item is LightItem light) LightEffects(light, panel);
         if (item is not ObjectItem o) return;
         var file = o.SourcePath ?? o.Document?.FilePath;
         panel.Children.Add(new TextBlock { Text = "File", FontWeight = FontWeight.Bold, Foreground = Look.Text, Margin = new Thickness(0, 8, 0, 0) });
         panel.Children.Add(Note((file != null ? Path.GetFileName(file) : "none yet") + (o.Document is { Modified: true } ? " (unsaved changes)" : "")));
+        Dissolve(o, panel);
         Morphs(o, panel);
     }
 
@@ -406,6 +408,8 @@ public sealed class EffectsPanel : LayoutPanel
 {
     private SceneSettingsPanel? _settings;
     private AVAModeler.Scene.Scene? _for;
+    private CompositingSettings? _compositing;
+    private int _images = -1;
 
     public EffectsPanel(MainWindow window) : base(window, "Effects") { }
 
@@ -414,7 +418,8 @@ public sealed class EffectsPanel : LayoutPanel
     public override void Refresh()
     {
         // Rebuilt for a new scene, or after the settings were applied (to show them as they are now).
-        if (_settings != null && ReferenceEquals(_for, Doc.Scene) && Children.Count > 0) return;
+        if (_settings != null && ReferenceEquals(_for, Doc.Scene) && Children.Count > 0 && _compositing == Doc.Scene.Compositing && _images == Doc.Scene.Images.Count) return;
+        (_compositing, _images) = (Doc.Scene.Compositing, Doc.Scene.Images.Count);
         Children.Clear();
         Children.Add(Heading("Effects"));
         Children.Add(Note("The backdrop, ambient light, ambient occlusion and the environment picture. Apply makes them one undo step. Fog is kept in the scene file; depth of field and motion blur are the camera's (Camera panel)."));
@@ -422,6 +427,82 @@ public sealed class EffectsPanel : LayoutPanel
         _settings = new SceneSettingsPanel(Doc.Session) { Margin = new Thickness(0) };
         _settings.Applied += () => { _settings = null; Window.SetStatus("Effects applied."); Refresh(); };
         Children.Add(_settings);
+        Compositing();
+    }
+
+    /// <summary>Forces the panel to be built afresh (after a compositing change).</summary>
+    private void Rebuild()
+    {
+        _settings = null;
+        Refresh();
+    }
+
+    /// <summary>
+    /// Compositing, as classic Layout's Effects panel had it: a background image behind everything the camera sees
+    /// nothing in front of, a foreground image laid over the render, cut out by a colour key (low to high) or by alpha,
+    /// and its dissolve; the images come from the Images panel. Each change is one undo step.
+    /// </summary>
+    private void Compositing()
+    {
+        var s = Doc.Session;
+        var c = Doc.Scene.Compositing;
+        var names = new List<string> { "(none)" };
+        names.AddRange(Doc.Scene.Images.Select(i => Path.GetFileName(i.Path)));
+        string PathOf(int index) => index <= 0 ? "" : Doc.Scene.Images[index - 1].Path;
+        int IndexOf(string path) => path.Length == 0 ? 0 : 1 + Doc.Scene.Images.ToList().FindIndex(i => SceneImages.Same(i.Path, path));
+        void Set(CompositingSettings next)
+        {
+            try { s.SetCompositing(next); Window.SetStatus("Compositing changed."); }
+            catch (ArgumentException e) { Window.SetStatus(e.Message); }
+            Rebuild();
+        }
+        Children.Add(Heading("Compositing"));
+        if (Doc.Scene.Images.Count == 0) Children.Add(Note("Load pictures in the Images panel first; they can then be the background or foreground here."));
+        ComboBox Images(string name, string path, Func<string, CompositingSettings> with)
+        {
+            var box = new ComboBox { ItemsSource = names, SelectedIndex = Math.Max(0, IndexOf(path)), HorizontalAlignment = HorizontalAlignment.Stretch, FontSize = 11, Name = name };
+            box.SelectionChanged += (_, _) => { if (PathOf(box.SelectedIndex) != path) Set(with(PathOf(box.SelectedIndex))); };
+            return box;
+        }
+        Children.Add(Label("Background image (where the camera sees nothing)"));
+        Children.Add(Images("CompositingBackground", c.Background, p => c with { Background = p }));
+        Children.Add(Label("Foreground image (laid over the render)"));
+        Children.Add(Images("CompositingForeground", c.Foreground, p => c with { Foreground = p }));
+        Children.Add(Label("Foreground key"));
+        var key = new ComboBox { ItemsSource = new[] { "None (its own alpha)", "Colour range", "Alpha image" }, SelectedIndex = (int)c.Key, HorizontalAlignment = HorizontalAlignment.Stretch, FontSize = 11, Name = "CompositingKey" };
+        key.SelectionChanged += (_, _) => { if (key.SelectedIndex != (int)c.Key) Set(c with { Key = (ForegroundKey)key.SelectedIndex }); };
+        Children.Add(key);
+        if (c.Key == ForegroundKey.Color)
+        {
+            Grid Colour(string label, Vec3 v, Func<Vec3, CompositingSettings> with, string name)
+            {
+                var g = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*,*") };
+                for (int i = 0; i < 3; i++)
+                {
+                    int ch = i;
+                    var b = NumberBox(Math.Round(v[i] * 255), x =>
+                    {
+                        double[] a = [v.X, v.Y, v.Z];
+                        a[ch] = Math.Clamp(x, 0, 255) / 255;
+                        Set(with(new Vec3(a[0], a[1], a[2])));
+                    }, name + "RGB"[i]);
+                    b.Margin = new Thickness(1, 0);
+                    Grid.SetColumn(b, i);
+                    g.Children.Add(b);
+                }
+                Children.Add(Label(label));
+                return g;
+            }
+            Children.Add(Colour("Key out from (0–255)", c.KeyLow, v => c with { KeyLow = v }, "KeyLow"));
+            Children.Add(Colour("…to (0–255)", c.KeyHigh, v => c with { KeyHigh = v }, "KeyHigh"));
+        }
+        if (c.Key == ForegroundKey.Alpha)
+        {
+            Children.Add(Label("Alpha image (empty: the foreground's own alpha)"));
+            Children.Add(Images("CompositingAlpha", c.ForegroundAlpha, p => c with { ForegroundAlpha = p }));
+        }
+        Children.Add(Label("Foreground dissolve %"));
+        Children.Add(NumberBox(c.ForegroundDissolve * 100, v => Set(c with { ForegroundDissolve = Math.Clamp(v, 0, 100) / 100 }), "ForegroundDissolve"));
     }
 }
 

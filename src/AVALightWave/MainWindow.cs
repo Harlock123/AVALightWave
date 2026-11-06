@@ -186,7 +186,7 @@ public sealed class MainWindow : Window
         foreach (var p in new LayoutPanel[]
         {
             new ScenePanel(this), new ItemsPanel(this, EditMode.Objects), new ItemsPanel(this, EditMode.Bones), new ItemsPanel(this, EditMode.Lights),
-            new ItemsPanel(this, EditMode.Cameras), new SurfacesPanel(this), new EffectsPanel(this), new RenderPanel(this), new OptionsPanel(this),
+            new ItemsPanel(this, EditMode.Cameras), new SurfacesPanel(this), new ImagesPanel(this), new EffectsPanel(this), new RenderPanel(this), new OptionsPanel(this),
         }) _panels[p.Title] = p;
 
         Content = BuildLayout();
@@ -983,6 +983,9 @@ public sealed class MainWindow : Window
         if (PickFile != null) return await PickFile(title, suggested, save);
         return save ? await Dialogs.Save(this, title, suggested ?? "scene", types) : await Dialogs.Open(this, title, types);
     }
+
+    /// <summary>Asks for a file to open (panels use it; tests give their own through <see cref="PickFile"/>).</summary>
+    internal Task<string?> PickToOpen(string title, params FilePickerFileType[] types) => Pick(title, null, false, types);
 
     private async Task<bool> Confirm(string title, string text, string yes, string no) =>
         _forTests || await Dialogs.Ask(this, title, text, yes, no);

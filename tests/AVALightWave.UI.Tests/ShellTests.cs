@@ -26,7 +26,7 @@ public class ShellTests
         Assert.Equal(LayoutViewMode.Perspective, w.View.Mode);
         Assert.Null(w.OpenPanel);
         Assert.Equal(BottomTab.GraphEditor, w.Bottom);
-        Assert.Equal(["Scene", "Objects", "Bones", "Lights", "Camera", "Surfaces", "Effects", "Render", "Options"], w.Panels.Keys);
+        Assert.Equal(["Scene", "Objects", "Bones", "Lights", "Camera", "Surfaces", "Images", "Effects", "Render", "Options"], w.Panels.Keys);
         Assert.Empty(w.ChooserItems);
         Assert.Contains("re-imagining of classic LightWave Layout", MainWindow.About);
         Assert.False(w.Hub.Running);
