@@ -89,6 +89,87 @@ string Save(Commands c, string name)
     Save(c, "spaceship.lwo");
 }
 
+// An arm for Skelegons → Bones: an upper arm and forearm (two boxes) with a chain of skelegons up its middle: 2-point
+// polygons on a "Skelegon" surface, as AVA Modeler's skelegon tools leave them.
+{
+    var c = Fresh();
+    Surface(c, "Arm", new Rgb(110, 150, 210), 0.3, 64, false);
+    c.Run("Box", new Dictionary<string, object?> { ["Center"] = new Vec3(0, 0.5, 0), ["Size"] = new Vec3(0.24, 1, 0.24), ["SegmentsY"] = 4, ["Surface"] = "Arm" });
+    c.Run("Box", new Dictionary<string, object?> { ["Center"] = new Vec3(0, 1.45, 0), ["Size"] = new Vec3(0.2, 0.9, 0.2), ["SegmentsY"] = 4, ["Surface"] = "Arm" });
+    var doc = c.Document;
+    doc.Surfaces.Add(new Surface("Skelegon") { Color = new Rgb(255, 220, 60) });
+    int skelegon = doc.Surfaces.Count - 1;
+    var mesh = doc.Current.Mesh;
+    int shoulder = mesh.Points.Count;
+    mesh.Points.AddRange([new Vec3(0, 0, 0), new Vec3(0, 1, 0), new Vec3(0, 1.9, 0)]);
+    mesh.Polygons.Add(new Polygon([shoulder, shoulder + 1], skelegon));
+    mesh.Polygons.Add(new Polygon([shoulder + 1, shoulder + 2], skelegon));
+    mesh.Touch();
+    Save(c, "arm.lwo");
+}
+
+// The pawn again, squashed (wider and half as tall) point for point: a morph target for the pawn.
+{
+    var doc = ObjectFiles.Load(Path.Combine(objects, "pawn.lwo"));
+    foreach (var layer in doc.Layers)
+    {
+        var m = layer.Mesh;
+        for (int i = 0; i < m.Points.Count; i++) m.Points[i] = new Vec3(Math.Round(m.Points[i].X * 1.35, 6), Math.Round(m.Points[i].Y * 0.6, 6), Math.Round(m.Points[i].Z * 1.35, 6));
+        m.Touch();
+    }
+    var path = Path.Combine(objects, "pawn-squash.lwo");
+    ObjectFiles.Save(doc, path);
+    Console.WriteLine($"{path}: the pawn squashed, for morphing");
+}
+
+// Images for the Images panel and compositing: a painted sky for the background, a foreground frame with a green key
+// colour to cut out, and a short numbered sequence of drifting stripes (stripes0001.png … stripes0012.png) for textures.
+{
+    var images = Path.Combine(root, "images");
+    Directory.CreateDirectory(images);
+    void Picture(string name, int w, int h, Func<int, int, (double R, double G, double B, double A)> at)
+    {
+        var rgba = new byte[w * h * 4];
+        for (int y = 0; y < h; y++)
+            for (int x = 0; x < w; x++)
+            {
+                var (r, g, b, a) = at(x, y);
+                int i = (y * w + x) * 4;
+                rgba[i] = (byte)Math.Clamp(Math.Round(r * 255), 0, 255);
+                rgba[i + 1] = (byte)Math.Clamp(Math.Round(g * 255), 0, 255);
+                rgba[i + 2] = (byte)Math.Clamp(Math.Round(b * 255), 0, 255);
+                rgba[i + 3] = (byte)Math.Clamp(Math.Round(a * 255), 0, 255);
+            }
+        File.WriteAllBytes(Path.Combine(images, name), Png.Encode(w, h, rgba));
+        Console.WriteLine($"samples/images/{name}");
+    }
+    // The sky: a dusk gradient with a low sun and rolling hills, 320 × 240.
+    Picture("sky.png", 320, 240, (x, y) =>
+    {
+        double t = y / 239.0;
+        double hill = 170 + 18 * Math.Sin(x / 40.0) + 9 * Math.Sin(x / 13.0 + 1);
+        if (y > hill) return (0.10 + 0.05 * Math.Sin(x / 9.0), 0.20 + 0.04 * t, 0.12, 1);
+        double sun = Math.Max(0, 1 - Math.Sqrt((x - 230) * (x - 230) + (y - 150) * (y - 150)) / 28);
+        return (Math.Min(1, 0.25 + 0.75 * t + sun), Math.Min(1, 0.25 + 0.45 * t + sun * 0.8), Math.Min(1, 0.55 - 0.25 * t + sun * 0.4), 1);
+    });
+    // The foreground: a dark frame like a window's, with pure green (0, 255, 0) in the middle to key out.
+    Picture("frame.png", 320, 240, (x, y) =>
+    {
+        bool inside = x > 24 && x < 296 && y > 20 && y < 220 && !(Math.Abs(x - 160) < 4) && !(Math.Abs(y - 120) < 4);
+        return inside ? (0, 1, 0, 1) : (0.16, 0.12, 0.10, 1);
+    });
+    // The sequence: stripes that drift one twelfth of their spacing each frame, so it loops after 12.
+    for (int n = 1; n <= 12; n++)
+    {
+        int frame = n;
+        Picture($"stripes{n:0000}.png", 64, 64, (x, y) =>
+        {
+            double v = 0.5 + 0.5 * Math.Sin(2 * Math.PI * (x + y + frame * 32.0 / 12) / 32);
+            return (0.2 + 0.7 * v, 0.3 + 0.4 * v, 0.9 - 0.5 * v, 1);
+        });
+    }
+}
+
 static void Animate(Envelope e, IEnumerable<EnvelopeKey> keys)
 {
     var fresh = new Envelope();
