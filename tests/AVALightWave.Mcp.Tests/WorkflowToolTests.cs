@@ -90,3 +90,35 @@ public class MorphToolTests
         Assert.Equal(2, ball.Morphs.Count);
     }
 }
+
+/// <summary>save_motion and load_motion: one item's motion onto another through a .mot file.</summary>
+public class MotionFileToolTests
+{
+    [Fact]
+    public async Task A_motion_saved_from_one_item_loads_onto_another()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("add_null", new { name = "A" });
+        await s.Client.Json("add_null", new { name = "B" });
+        await s.Client.Json("set_key", new { item = "A", channel = "position.x", frame = 1, value = 0 });
+        await s.Client.Json("set_key", new { item = "A", channel = "position.x", frame = 20, value = 3 });
+        var r = await s.Client.Json("save_motion", new { item = "A", file = "motions/a.mot" });
+        Assert.Equal("motions/a.mot", ((string?)r["saved"])!.Replace('\\', '/'));
+        Assert.Contains("already exists", await s.Client.Fails("save_motion", new { item = "A", file = "motions/a.mot" }));
+        await s.Client.Json("save_motion", new { item = "A", file = "motions/a1.mot", version = 1 });
+        r = await s.Client.Json("load_motion", new { item = "B", file = "motions/a1.mot" });
+        Assert.Equal(1, (int?)r["version"]);
+        var a = b.Scene.Find("A")!;
+        var bb = b.Scene.Find("B")!;
+        Assert.Equal(a.PositionAt(10).X, bb.PositionAt(10).X, 6);
+        await s.Client.Json("undo_scene");
+        Assert.Equal(0, bb.PositionAt(10).X, 9);
+        await s.Client.Json("load_motion", new { item = "B", file = "motions/a.mot" });
+        Assert.Equal(a.PositionAt(13).X, bb.PositionAt(13).X, 9);
+        File.WriteAllText(b.Folder.File("bad.mot"), "not a motion");
+        Assert.Contains("LWMO", await s.Client.Fails("load_motion", new { item = "B", file = "bad.mot" }));
+        Assert.Contains("version must be", await s.Client.Fails("save_motion", new { item = "A", file = "x.mot", version = 2 }));
+        Assert.Contains("outside the working folder", await s.Client.Fails("load_motion", new { item = "B", file = "../x.mot" }));
+    }
+}

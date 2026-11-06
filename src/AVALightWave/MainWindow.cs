@@ -606,6 +606,9 @@ public sealed class MainWindow : Window
                     Item("Add _Area Light", () => Session.Add(new LightItem("Area Light", LightType.Area))),
                     Item("Add _Camera", () => Session.Add(new CameraItem("Camera"))), "-",
                     Item("C_lone Item…", () => OpenClone()),
+                    Item("_Motion Options…", () => OpenMotionOptions()),
+                    Item("Load Mo_tion…", () => { if (Session.Selected is { } i) _ = LoadMotionDialog(i); else SetStatus("Choose an item to load a motion onto."); }),
+                    Item("Sa_ve Motion…", () => { if (Session.Selected is { } i) _ = SaveMotionDialog(i); else SetStatus("Choose an item whose motion to save."); }),
                     Item("S_kelegons → Bones", () => SkelegonsToBones((Session.Selected as Bone)?.Owner ?? Session.Selected as ObjectItem ?? CurrentObject)),
                     Item("_Remove Item", () => { if (Session.Selected is { } i) Session.Remove(i); })),
                 Group("_View", views.Select((v, n) => (object)Item($"_{n + 1} {v}", () => View.Mode = v)).Concat(new object[]
@@ -792,6 +795,56 @@ public sealed class MainWindow : Window
         if (_forTests) w.Show(this);
         else _ = Dialogs.ShowModal(w, this);
         return w;
+    }
+
+    /// <summary>Motion Options for the chosen item: its motion modifiers and its motion file.</summary>
+    public MotionOptions? OpenMotionOptions()
+    {
+        if (Session.Selected is not { } item) { SetStatus("Choose an item for its motion options."); return null; }
+        var w = new MotionOptions(this, item);
+        if (_forTests) w.Show(this);
+        else _ = Dialogs.ShowModal(w, this);
+        return w;
+    }
+
+    private static readonly FilePickerFileType MotionFiles = new("LightWave motion") { Patterns = ["*" + MotionFile.Extension] };
+
+    /// <summary>Load Motion: replaces an item's nine channels with a motion file's keys, as one undo step.</summary>
+    public async Task LoadMotionDialog(SceneItem item)
+    {
+        var path = await Pick($"Load a motion onto {item.Name}", null, false, MotionFiles);
+        if (path != null) LoadMotion(item, path);
+    }
+
+    public bool LoadMotion(SceneItem item, string path)
+    {
+        try
+        {
+            var r = Session.LoadMotion(item, path);
+            SetStatus($"Loaded {Path.GetFileName(path)} onto {item.Name}." + (r.Warnings.Count > 0 ? " " + string.Join(" ", r.Warnings) : ""));
+            return true;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetStatus($"Can't load {Path.GetFileName(path)}: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>Save Motion: an item's nine channels as a LightWave motion file.</summary>
+    public async Task SaveMotionDialog(SceneItem item)
+    {
+        var path = await Pick($"Save {item.Name}'s motion", item.Name + MotionFile.Extension, true, MotionFiles);
+        if (path == null) return;
+        try
+        {
+            var warnings = Session.SaveMotion(item, path);
+            SetStatus($"Saved {item.Name}'s motion as {Path.GetFileName(path)}." + (warnings.Count > 0 ? " " + string.Join(" ", warnings) : ""));
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            SetStatus($"Can't save the motion: {e.Message}");
+        }
     }
 
     /// <summary>Skelegons → Bones for an object, in one step (one undo step): a bone for every skelegon in its file.</summary>

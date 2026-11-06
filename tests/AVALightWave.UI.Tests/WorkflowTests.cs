@@ -160,4 +160,46 @@ public class WorkflowTests
         w.Session.Select(null);
         Assert.Empty(w.SkelegonsToBones(null));
     }
+
+    [AvaloniaFact]
+    public void Motion_options_add_and_remove_modifiers_and_carry_motion_files()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        var leader = w.Session.Add(new NullItem("Leader"));
+        leader.SetPosition(1, Vec3.Zero);
+        leader.SetPosition(21, new Vec3(4, 0, 0));
+        var crate = w.LoadObject(bench.Object("crate.lwo"))!;
+        var o = w.OpenMotionOptions()!;
+        Ui.Pump();
+        o.Kind = "Lag";
+        Ui.Pump();
+        ((Avalonia.Controls.ComboBox)o.Input("Leader")).SelectedItem = "Leader";
+        ((Avalonia.Controls.TextBox)o.Input("Delay")).Text = "10";
+        Assert.True(o.Add());
+        var lag = Assert.IsType<LagModifier>(Assert.Single(crate.Modifiers));
+        Assert.Equal(10, lag.Delay);
+        Assert.Equal(leader.WorldPosition(11).X, crate.WorldPosition(21).X, 6);
+        o.Kind = "Oscillate";
+        Ui.Pump();
+        ((Avalonia.Controls.TextBox)o.Input("Period")).Text = "nonsense";
+        Assert.False(o.Add());
+        Assert.Contains("isn't a number", o.Said);
+        ((Avalonia.Controls.TextBox)o.Input("Period")).Text = "12";
+        Assert.True(o.Add());
+        Assert.Equal(2, crate.Modifiers.Count);
+        Assert.True(o.Remove(0));
+        Assert.IsType<OscillateModifier>(Assert.Single(crate.Modifiers));
+        w.Undo();
+        Assert.Equal(2, crate.Modifiers.Count);
+        o.Close();
+
+        // A motion saved from the leader loads onto the crate.
+        var path = bench.File("leader.mot");
+        w.Session.SaveMotion(leader, path);
+        Assert.True(w.LoadMotion(crate, path));
+        Assert.Equal(leader.PositionAt(11).X, crate.PositionAt(11).X, 6);
+        Assert.Contains("Loaded leader.mot onto crate", w.Status);
+        Assert.False(w.LoadMotion(crate, bench.File("none.mot")));
+    }
 }

@@ -190,6 +190,50 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
             };
         }, cancel);
 
+    [McpServerTool(Name = "load_motion", Destructive = true)]
+    [Description("Load Motion, as classic Layout had it: replaces an item's nine motion channels (position, rotation, scale) with the keys in a LightWave motion file (.mot, version 1 from Layout 4/5 or version 3 from LightWave 6 on) from the working folder — one saved with save_motion from another item applies that item's motion to this one. Times in version 3 files are read at the scene's frames per second. Its other channels (intensity, morphs…), path following and motion modifiers are left as they are. One undo step. Returns the keys now on its channels, with any warnings.")]
+    public Task<string> LoadMotion(
+        [Description("The item, by name or #index from get_scene.")] string item,
+        [Description("The motion file, relative to the working folder, e.g. \"motions/bounce.mot\".")] string file,
+        CancellationToken cancel = default) =>
+        Scene("loaded a motion", (l, root) =>
+        {
+            var it = ItemByName(l.Scene, item);
+            var full = Inside(root, file);
+            if (!File.Exists(full)) throw new FileNotFoundException($"There's no file {file} in the working folder ({root}).");
+            var r = l.LoadMotion(it, full);
+            return new JsonObject
+            {
+                ["item"] = it.Name, ["version"] = r.Version, ["keys"] = it.KeyFrames().Count,
+                ["key_frames"] = new JsonArray(it.KeyFrames().Select(f => (JsonNode)JsonValue.Create(Math.Round(f, 4))).ToArray()),
+                ["warnings"] = new JsonArray(r.Warnings.Select(w => (JsonNode)JsonValue.Create(w)).ToArray()),
+            };
+        }, cancel);
+
+    [McpServerTool(Name = "save_motion", Destructive = true)]
+    [Description("Save Motion: writes an item's nine motion channels as a LightWave motion file (.mot) in the working folder: version 3 (the default, LightWave 6 on: keeps every key's shape and each channel's before and after behaviour, times in seconds at the scene's rate) or version 1 (Layout 4/5: keys on all nine channels at once, TCB or linear, one after behaviour). Load it onto another item with load_motion. Path following and motion modifiers aren't kept (a warning says so). An existing file is replaced only when overwrite is true. Not an undo step (files aren't undone).")]
+    public Task<string> SaveMotion(
+        [Description("The item, by name or #index from get_scene.")] string item,
+        [Description("The file, relative to the working folder, e.g. \"motions/bounce.mot\".")] string file,
+        [Description("1 or 3 (default 3).")] int version = 3,
+        [Description("Replace the file if it already exists.")] bool overwrite = false,
+        CancellationToken cancel = default) =>
+        Scene("saved a motion", (l, root) =>
+        {
+            var it = ItemByName(l.Scene, item);
+            if (version is not (1 or 3)) throw new ArgumentException("version must be 1 (Layout 4/5) or 3 (LightWave 6 on).");
+            var full = Inside(root, file);
+            if (!full.EndsWith(MotionFile.Extension, StringComparison.OrdinalIgnoreCase)) throw new ArgumentException($"A motion file ends in {MotionFile.Extension}.");
+            if (File.Exists(full) && !overwrite) throw new IOException($"{file} already exists: give overwrite true to replace it.");
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            var warnings = l.SaveMotion(it, full, version);
+            return new JsonObject
+            {
+                ["item"] = it.Name, ["saved"] = Path.GetRelativePath(root, full), ["version"] = version,
+                ["warnings"] = new JsonArray(warnings.Select(w => (JsonNode)JsonValue.Create(w)).ToArray()),
+            };
+        }, cancel, changes: false);
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     /// <summary>Any item by name or #index.</summary>
