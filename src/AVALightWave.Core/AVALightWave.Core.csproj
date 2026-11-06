@@ -8,6 +8,7 @@
     <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Layout\AVAModeler.Layout.csproj" />
     <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Formats\AVAModeler.Formats.csproj" />
     <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Hub\AVAModeler.Hub.csproj" />
+    <ProjectReference Include="..\..\external\AVAModeler\src\AVAModeler.Tools\AVAModeler.Tools.csproj" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="AVALightWave.Core.Tests" />

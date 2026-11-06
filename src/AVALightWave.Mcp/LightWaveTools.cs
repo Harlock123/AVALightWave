@@ -346,6 +346,36 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
         }.ToJsonString();
     }
 
+    [McpServerTool(Name = "run_macro", Destructive = true)]
+    [Description("Runs a Lua scene macro, AVALightWave's Macros menu's language, on the open scene: give code, or file (a .lua in the working folder). It runs in AVA Modeler's macro sandbox (no os, io or require; stopped after 30 seconds) with functions for the scene: items, frame, frames, addobject, addnull, addlight, addcamera, remove, select, rename, parent, setpos/setrot/setscale (keys at a frame), getpos/getrot/getscale, key (item, channel, frame, value, {Tension, Continuity, Bias, Span}), unkey, get, channels, light, clone, render (a PNG), print. Relative paths start from the working folder (or the macro file's folder). The whole macro is one undo step; one that fails changes nothing. Returns what it printed.")]
+    public Task<string> RunMacro(
+        [Description("Lua code to run (or give file).")] string? code = null,
+        [Description("A .lua macro file in the working folder (or give code).")] string? file = null,
+        CancellationToken cancel = default) =>
+        Scene("ran a macro", (l, root) =>
+        {
+            if ((code == null) == (file == null)) throw new ArgumentException("Give code or file, one of them.");
+            var printed = new List<string>();
+            string folder = root, name = "agent macro";
+            if (file != null)
+            {
+                var full = Inside(root, file);
+                if (!File.Exists(full)) throw new FileNotFoundException($"There's no file {file} in the working folder ({root}).");
+                code = File.ReadAllText(full);
+                folder = Path.GetDirectoryName(full)!;
+                name = Path.GetFileNameWithoutExtension(full);
+            }
+            // Paths a macro gives stay inside the working folder: they're checked by the sandbox's functions through
+            // the folder they start from, and anything outside it is refused here.
+            LayoutMacros.Run(l, code!, name, folder, printed.Add, guard: p => Inside(root, Path.GetRelativePath(root, p)));
+            return new JsonObject
+            {
+                ["ran"] = name,
+                ["printed"] = new JsonArray(printed.Select(p => (JsonNode)JsonValue.Create(p)).ToArray()),
+                ["items"] = l.Scene.Items.Count,
+            };
+        }, cancel);
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     /// <summary>Any item by name or #index.</summary>

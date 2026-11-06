@@ -122,3 +122,26 @@ public class MotionFileToolTests
         Assert.Contains("outside the working folder", await s.Client.Fails("load_motion", new { item = "B", file = "../x.mot" }));
     }
 }
+
+/// <summary>run_macro: Lua scene macros for agents, one undo step, kept in the working folder.</summary>
+public class MacroToolTests
+{
+    [Fact]
+    public async Task A_macro_runs_as_one_step_and_stays_in_the_working_folder()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        var r = await s.Client.Json("run_macro", new { code = "local c = addobject('objects/crate.lwo')\nclone(c, 2, {1, 0, 0})\nprint(#items())" });
+        Assert.Equal("5", (string?)r["printed"]![0]);
+        Assert.Equal(3, b.Scene.Objects.Count());
+        await s.Client.Json("undo_scene");
+        Assert.Empty(b.Scene.Objects);
+        File.WriteAllText(b.Folder.File("spin.lua"), "addnull('Spin')\nkey('Spin', 'heading', 1, 0)\nkey('Spin', 'heading', 30, 360)");
+        await s.Client.Json("run_macro", new { file = "spin.lua" });
+        Assert.Equal(360, b.Scene.Find("Spin")!.RotationAt(30).X, 9);
+        Assert.Contains("outside the working folder", await s.Client.Fails("run_macro", new { code = "addobject('../../etc/x.lwo')" }));
+        Assert.Contains("one of them", await s.Client.Fails("run_macro", new { }));
+        Assert.Contains("no channel", await s.Client.Fails("run_macro", new { code = "addnull('X') key('X', 'bogus', 1, 1)" }));
+        Assert.Null(b.Scene.Find("X"));
+    }
+}

@@ -202,4 +202,26 @@ public class WorkflowTests
         Assert.Contains("Loaded leader.mot onto crate", w.Status);
         Assert.False(w.LoadMotion(crate, bench.File("none.mot")));
     }
+
+    [AvaloniaFact]
+    public void The_macros_menu_lists_the_folders_macros_and_runs_them_as_one_step()
+    {
+        using var bench = new Workbench();
+        var folder = Directory.CreateDirectory(bench.File("macros")).FullName;
+        File.WriteAllText(Path.Combine(folder, "rig.lua"), "addnull('Rig')\nprint('rigged')");
+        File.WriteAllText(Path.Combine(folder, "broken.lua"), "addnull('Half')\nerror('no')");
+        var w = Ui.Open();
+        Assert.Null(w.MacroFolder);
+        w.MacroFolder = folder;
+        w.RefreshMacros();
+        Assert.True(w.RunMacro(Path.Combine(folder, "rig.lua")));
+        Assert.NotNull(w.Session.Scene.Find("Rig"));
+        Assert.Contains("rigged", w.Status);
+        Assert.Equal("Macro: rig", w.Session.History.UndoLabel);
+        Assert.False(w.RunMacro(Path.Combine(folder, "broken.lua")));
+        Assert.Null(w.Session.Scene.Find("Half"));
+        Assert.Contains("stopped", w.Status);
+        w.Undo();
+        Assert.Null(w.Session.Scene.Find("Rig"));
+    }
 }

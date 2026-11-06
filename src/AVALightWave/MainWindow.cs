@@ -49,6 +49,7 @@ public sealed class MainWindow : Window
     private readonly TextBlock _status = new() { Foreground = Look.ButtonOn, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0), TextTrimming = TextTrimming.CharacterEllipsis };
     private readonly TextBlock _hubLight = new() { Foreground = Look.Text, FontSize = 11, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(8, 0) };
     private readonly CheckBox _autoKey = new() { Content = "Auto Key", Foreground = Look.Text, Margin = new Thickness(6, 0) };
+    private readonly MenuItem _macros = new() { Header = "_Macros" };
     private readonly MenuItem _undo = new(), _redo = new(), _recentScenes = new() { Header = "Recent _Scenes" }, _recentObjects = new() { Header = "Recent O_bjects" };
     private readonly DispatcherTimer _player = new();
     private readonly DispatcherTimer _autosaveTimer = new();
@@ -113,6 +114,12 @@ public sealed class MainWindow : Window
 
     /// <summary>Whether this window is rendering the queue's frames itself.</summary>
     internal bool LocalRendering => _queue?.Running == true;
+
+    /// <summary>The person's macro folder, listed in the Macros menu (none in a window made for tests unless a test gives one).</summary>
+    internal string? MacroFolder { get; set; }
+
+    /// <summary>What the last macro printed.</summary>
+    internal List<string> MacroOutput { get; } = [];
 
     /// <summary>Asks where to open or save a file (tests give their own: title, suggested name, save?).</summary>
     internal Func<string, string?, bool, Task<string?>>? PickFile { get; set; }
@@ -224,12 +231,15 @@ public sealed class MainWindow : Window
         Mode = EditMode.Objects;
         DragMode = ItemDrag.Move;
         RefreshRecent();
+        _macros.SubmenuOpened += (_, _) => RefreshMacros();
+        RefreshMacros();
         Refresh();
         UpdateUndoItems();
 
         if (!forTests)
         {
             Autosave = new SceneAutosave(SceneAutosave.DefaultFolder);
+            MacroFolder = LayoutMacros.DefaultFolder;
             // The hub light: whether AVA Modeler is there, looked at every few seconds (a moment's connection, off the UI thread).
             _hubTimer.Interval = TimeSpan.FromSeconds(3);
             _hubTimer.Tick += async (_, _) => await Hub.CheckPresenceAsync();
@@ -655,11 +665,60 @@ public sealed class MainWindow : Window
                     Item("Make _Preview…", () => MakePreview(), "Shift+P"), Item("Render _Queue…", () => OpenRenderQueue())),
                 Group("_Hub", Item("_Edit in Modeler", () => { if (Session.Selected is ObjectItem o) _ = EditInModeler(o); else SetStatus("Choose an object to edit in AVA Modeler."); }, "Ctrl+E"),
                     Item("_Link with AVA Modeler…", () => ShowPanel("Options"))),
+                _macros,
                 Group("_AI", Item("_Chat with Claude…", ToggleChat, "F4"), Item("Allow AI _Agents…", () => ShowPanel("Options"))),
                 Group("_Help", Item("_Layout", () => _ = Dialogs.Message(this, "AVALightWave", Help)), Item("_Keyboard", () => _ = Dialogs.Message(this, "Keyboard", Keyboard)),
                     Item("_About", () => _ = Dialogs.Message(this, "About AVALightWave", About))),
             },
         };
+    }
+
+    /// <summary>Fills the Macros menu: Run Macro, the reference, and the macros in the person's folder.</summary>
+    internal void RefreshMacros()
+    {
+        MenuItem Item(string header, Action action)
+        {
+            var i = new MenuItem { Header = header };
+            i.Click += (_, _) => action();
+            return i;
+        }
+        var items = new List<object>
+        {
+            Item("_Run Macro…", () => _ = RunMacroDialog()),
+            Item("Macro _Reference", () => _ = Dialogs.Message(this, "Macro Reference", LayoutMacros.ReferenceText)),
+            Item("Macro _Folder", () => SetStatus(MacroFolder != null ? $"Put .lua macros in {MacroFolder}; they're listed in the Macros menu." : "There's no macro folder.")),
+            new Separator(),
+        };
+        var found = LayoutMacros.List(MacroFolder);
+        items.AddRange(found.Count == 0 ? [new MenuItem { Header = "(no macros in the folder)", IsEnabled = false }]
+            : found.Select(f => (object)Item(Path.GetFileNameWithoutExtension(f).Replace("_", "__"), () => RunMacro(f))));
+        _macros.ItemsSource = items;
+    }
+
+    private static readonly FilePickerFileType LuaFiles = new("Lua macro") { Patterns = ["*.lua"] };
+
+    public async Task RunMacroDialog()
+    {
+        var path = await Pick("Run a macro", null, false, LuaFiles);
+        if (path != null) RunMacro(path);
+    }
+
+    /// <summary>Runs a Lua macro file on the scene, as one undo step; says what it printed, or why it stopped.</summary>
+    public bool RunMacro(string path)
+    {
+        MacroOutput.Clear();
+        try
+        {
+            LayoutMacros.RunFile(Session, path, MacroOutput.Add);
+            RefreshItems();
+            SetStatus($"Ran {Path.GetFileName(path)}." + (MacroOutput.Count > 0 ? " " + MacroOutput[^1] : ""));
+            return true;
+        }
+        catch (Exception e) when (e is AVAModeler.Tools.MacroException or IOException or UnauthorizedAccessException)
+        {
+            SetStatus($"{Path.GetFileName(path)} stopped: {e.Message} (the scene is as it was)");
+            return false;
+        }
     }
 
     public const string About = """
