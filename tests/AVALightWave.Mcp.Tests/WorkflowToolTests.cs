@@ -59,3 +59,34 @@ public class WorkflowToolTests
         Assert.Equal(2, b.Scene.Items.Count);
     }
 }
+
+/// <summary>add_morph_target through a client.</summary>
+public class MorphToolTests
+{
+    [Fact]
+    public async Task A_morph_target_from_a_file_or_object_keyed_with_set_key()
+    {
+        using var b = new Bench();
+        var doc = AVAModeler.Formats.ObjectFiles.Load(b.Folder.Object("ball.lwo"));
+        foreach (var layer in doc.Layers)
+        {
+            for (int i = 0; i < layer.Mesh.Points.Count; i++) layer.Mesh.Points[i] = layer.Mesh.Points[i] * 2;
+            layer.Mesh.Touch();
+        }
+        AVAModeler.Formats.ObjectFiles.Save(doc, b.Folder.Object("ball-big.lwo"));
+        await using var s = await b.Serve();
+        await s.Client.Json("add_object", new { file = "objects/ball.lwo", name = "Ball" });
+        var r = await s.Client.Json("add_morph_target", new { @object = "Ball", file = "objects/ball-big.lwo", name = "Grow" });
+        Assert.Equal("morph.Grow", (string?)r["added"]);
+        await s.Client.Json("set_key", new { item = "Ball", channel = "morph.Grow", frame = 10, value = 1 });
+        var ball = (ObjectItem)b.Scene.Find("Ball")!;
+        Assert.Equal(ball.BaseMesh().Bounds().Max.Y * 2, ball.DeformedMesh(10).Bounds().Max.Y, 6);
+        await s.Client.Json("add_object", new { file = "objects/ball-big.lwo", name = "Big" });
+        r = await s.Client.Json("add_morph_target", new { @object = "Ball", from_object = "Big" });
+        Assert.Equal("morph.Big", (string?)r["added"]);
+        Assert.Contains("one of them", await s.Client.Fails("add_morph_target", new { @object = "Ball" }));
+        Assert.Contains("same points", await s.Client.Fails("add_morph_target", new { @object = "Ball", file = "objects/crate.lwo" }));
+        Assert.Contains("outside the working folder", await s.Client.Fails("add_morph_target", new { @object = "Ball", file = "../x.lwo" }));
+        Assert.Equal(2, ball.Morphs.Count);
+    }
+}

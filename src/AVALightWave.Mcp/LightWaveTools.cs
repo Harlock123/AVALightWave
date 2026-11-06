@@ -159,6 +159,37 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
             };
         }, cancel);
 
+    [McpServerTool(Name = "add_morph_target", Destructive = true)]
+    [Description("Morph envelopes in Layout (classic Layout's Metamorph): gives a scene object a morph target from an object file in the working folder (one layer, or all its layers merged) or from another object in the scene (its shape now). The target must have exactly the object's points in the same order (made from the object in a modeler: AVA Modeler's edit_in_modeler can make one). The weight is the channel morph.<name>: 0 the object's own shape, 1 the target, between blends, beyond 1 exaggerates; it starts at weight (default 0) and is keyed with set_key (channel \"morph.<name>\"). Several targets add up. Shows in the views, previews and renders. One undo step. set_morph renames one or sets its weight; remove_morph takes it off.")]
+    public Task<string> AddMorphTarget(
+        [Description("The object to morph, by name or #index from get_scene.")] string @object,
+        [Description("An object file in the working folder holding the target shape, e.g. \"objects/face-smile.lwo\" (or give from_object).")] string? file = null,
+        [Description("Another scene object whose shape is the target (or give file).")] string? from_object = null,
+        [Description("The morph's name (default the file's or object's name); its channel is morph.<name>.")] string? name = null,
+        [Description("The file's layer holding the target, 1 to 10 (default every non-empty layer merged).")] int? layer = null,
+        [Description("Its weight throughout until keyed, 0 to 1 (default 0: the object's own shape).")] double weight = 0,
+        CancellationToken cancel = default) =>
+        Scene("added a morph target", (l, root) =>
+        {
+            var obj = ObjectByName(l.Scene, @object);
+            if ((file == null) == (from_object == null)) throw new ArgumentException("Give file (an object file) or from_object (a scene object), one of them.");
+            MorphTarget m;
+            if (file != null)
+            {
+                var full = Inside(root, file);
+                if (!File.Exists(full)) throw new FileNotFoundException($"There's no file {file} in the working folder ({root}).");
+                m = MorphTargets.AddFromFile(l, obj, full, name, layer, weight);
+            }
+            else m = MorphTargets.AddFromObject(l, obj, ObjectByName(l.Scene, from_object!), name, weight);
+            return new JsonObject
+            {
+                ["object"] = obj.Name,
+                ["added"] = AVAModeler.Layout.SceneChannels.MorphChannel(m),
+                ["points"] = m.Target.Points.Count,
+                ["morphs"] = new JsonArray(obj.Morphs.Select(x => (JsonNode)new JsonObject { ["name"] = x.Name, ["channel"] = AVAModeler.Layout.SceneChannels.MorphChannel(x), ["weight"] = Math.Round(x.Weight.Evaluate(l.Frame), 6) }).ToArray()),
+            };
+        }, cancel);
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     /// <summary>Any item by name or #index.</summary>

@@ -189,3 +189,59 @@ public class CloneMergeTests
         Assert.False(File.Exists(auto.ScenePath));
     }
 }
+
+/// <summary>Morph targets from files and other objects, their weights keyed, and what's refused.</summary>
+public class MorphTargetTests
+{
+    [Fact]
+    public void A_target_from_a_file_blends_by_its_keyed_weight()
+    {
+        using var w = new Workbench();
+        var d = new SceneDocument();
+        var pawn = d.LoadObject(w.Object("pawn.lwo"));
+        double top = pawn.BaseMesh().Bounds().Max.Y;
+        var m = MorphTargets.AddFromFile(d.Session, pawn, w.SquashedPawn());
+        Assert.Equal("pawn-squash", m.Name);
+        Assert.Equal("Add Morph pawn-squash to pawn", d.Session.History.UndoLabel);
+        Assert.Equal(top, pawn.DeformedMesh(1).Bounds().Max.Y, 6);
+        d.Session.SetFrame(1);
+        MorphTargets.SetWeight(d.Session, pawn, m, 0);
+        d.Session.SetFrame(21);
+        MorphTargets.SetWeight(d.Session, pawn, m, 1);
+        Assert.True(AVAModeler.Layout.Keying.IsAnimated(m.Weight));
+        Assert.Equal(top * 0.5, pawn.DeformedMesh(21).Bounds().Max.Y, 6);
+        Assert.InRange(pawn.DeformedMesh(11).Bounds().Max.Y, top * 0.5, top);
+        // It renders and saves with the scene (.avascene keeps morphs).
+        var path = w.File("morph.avascene");
+        d.Save(path);
+        var back = new SceneDocument();
+        back.Load(path);
+        Assert.Equal(top * 0.5, back.Scene.Objects.Single().DeformedMesh(21).Bounds().Max.Y, 6);
+        d.Session.Undo();
+        d.Session.Undo();
+        d.Session.Undo();
+        Assert.Empty(pawn.Morphs);
+    }
+
+    [Fact]
+    public void A_target_from_another_object_and_what_is_refused()
+    {
+        using var w = new Workbench();
+        var d = new SceneDocument();
+        var pawn = d.LoadObject(w.Object("pawn.lwo"));
+        var squash = d.LoadObject(w.SquashedPawn());
+        var crate = d.LoadObject(w.Object("crate.lwo"));
+        Assert.Equal([squash], MorphTargets.Candidates(d.Scene, pawn));
+        var m = MorphTargets.AddFromObject(d.Session, pawn, squash, weight: 1);
+        Assert.Equal(pawn.BaseMesh().Bounds().Max.Y * 0.5, pawn.DeformedMesh(1).Bounds().Max.Y, 6);
+        // A second one with the same name is numbered.
+        Assert.Equal("pawn-squash 2", MorphTargets.AddFromObject(d.Session, pawn, squash).Name);
+        int steps = d.Session.History.Count;
+        Assert.Throws<ArgumentException>(() => MorphTargets.AddFromObject(d.Session, pawn, crate));
+        Assert.Throws<ArgumentException>(() => MorphTargets.AddFromObject(d.Session, pawn, pawn));
+        Assert.Throws<ArgumentException>(() => MorphTargets.AddFromFile(d.Session, pawn, w.Object("pawn.lwo"), layer: 9));
+        Assert.Equal(steps, d.Session.History.Count);
+        MorphTargets.Remove(d.Session, pawn, m);
+        Assert.Single(pawn.Morphs);
+    }
+}

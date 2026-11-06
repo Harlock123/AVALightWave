@@ -32,6 +32,21 @@ internal sealed class Workbench : IDisposable
         return path;
     }
 
+    /// <summary>The pawn file again with its points squashed (wider, half as tall): a morph target for the pawn.</summary>
+    public string SquashedPawn()
+    {
+        var doc = ObjectFiles.Load(Object("pawn.lwo"));
+        foreach (var layer in doc.Layers)
+        {
+            var m = layer.Mesh;
+            for (int i = 0; i < m.Points.Count; i++) m.Points[i] = new Vec3(m.Points[i].X * 1.5, m.Points[i].Y * 0.5, m.Points[i].Z * 1.5);
+            m.Touch();
+        }
+        var path = File("pawn-squash.lwo");
+        ObjectFiles.Save(doc, path);
+        return path;
+    }
+
     public void Dispose()
     {
         try { Directory.Delete(Path, true); }

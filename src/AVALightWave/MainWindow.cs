@@ -846,6 +846,23 @@ public sealed class MainWindow : Window
         return w;
     }
 
+    /// <summary>Adds a morph target to an object from a file the person picks (same points, same order).</summary>
+    public async Task AddMorphFromFile(ObjectItem obj)
+    {
+        var path = await Pick($"A morph target for {obj.Name}", null, false, Dialogs.Objects);
+        if (path == null) return;
+        try
+        {
+            var m = MorphTargets.AddFromFile(Session, obj, path);
+            SetStatus($"{obj.Name} can morph toward {m.Name}: key its weight (morph.{m.Name}).");
+            if (CurrentPanel is ItemsPanel items) items.Reshow();
+        }
+        catch (Exception e) when (e is IOException or FormatException or NotSupportedException or UnauthorizedAccessException or InvalidDataException or ArgumentException)
+        {
+            SetStatus($"Can't use {Path.GetFileName(path)} as a morph target: {e.Message}");
+        }
+    }
+
     public async Task LoadObjectDialog()
     {
         var path = await Pick("Load an object", null, false, Dialogs.Objects);

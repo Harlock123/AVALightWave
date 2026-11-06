@@ -1,4 +1,5 @@
 using Avalonia.Headless.XUnit;
+using Avalonia.LogicalTree;
 using AVALightWave.Core.Tests;
 using AVAModeler.Core;
 using AVAModeler.Scene;
@@ -97,5 +98,33 @@ public class WorkflowTests
         var third = Ui.Open();
         third.Autosave = new SceneAutosave(folder);
         Assert.False(Ui.Wait(third.OfferRecovery()));
+    }
+
+    [AvaloniaFact]
+    public void The_objects_panel_adds_a_morph_target_and_keys_its_weight()
+    {
+        using var bench = new Workbench();
+        var squash = bench.SquashedPawn();
+        var w = Ui.Open();
+        var target = w.LoadObject(squash)!;
+        var pawn = w.LoadObject(bench.Object("pawn.lwo"))!;
+        w.ShowPanel("Objects");
+        Ui.Pump();
+        var panel = (ItemsPanel)w.CurrentPanel!;
+        var source = Ui.Find<Avalonia.Controls.ComboBox>(panel, "MorphSource");
+        Assert.Equal(["pawn-squash"], source.ItemsSource!.Cast<string>());
+        source.SelectedIndex = 0;
+        var add = panel.GetLogicalDescendants().OfType<Avalonia.Controls.Button>().First(b => (b.Content as string) == "Add Target Object");
+        add.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Avalonia.Controls.Button.ClickEvent));
+        Ui.Pump();
+        var m = Assert.Single(pawn.Morphs);
+        Assert.Equal(target.BaseMesh().Points.Count, m.Target.Points.Count);
+        w.Session.SetFrame(20);
+        Ui.Pump();
+        var weight = Ui.Find<Avalonia.Controls.TextBox>(w.CurrentPanel!, "MorphWeight0");
+        Ui.Type(w, weight, "100");
+        Assert.Equal(1, m.Weight.Evaluate(20), 9);
+        Assert.Equal("Set pawn's pawn-squash", w.Session.History.UndoLabel);
+        Assert.True(pawn.DeformedMesh(20).Bounds().Max.Y < pawn.BaseMesh().Bounds().Max.Y * 0.6);
     }
 }

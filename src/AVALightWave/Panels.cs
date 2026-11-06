@@ -233,6 +233,52 @@ public sealed class ItemsPanel : LayoutPanel
         var file = o.SourcePath ?? o.Document?.FilePath;
         panel.Children.Add(new TextBlock { Text = "File", FontWeight = FontWeight.Bold, Foreground = Look.Text, Margin = new Thickness(0, 8, 0, 0) });
         panel.Children.Add(Note((file != null ? Path.GetFileName(file) : "none yet") + (o.Document is { Modified: true } ? " (unsaved changes)" : "")));
+        Morphs(o, panel);
+    }
+
+    /// <summary>
+    /// The object's morph targets (classic Layout's Metamorph): each with its weight at this frame in percent (keyed by
+    /// Auto Key, as any value), and buttons to add a target from a file or another object, or take one off.
+    /// </summary>
+    private void Morphs(ObjectItem o, ItemPropertiesPanel panel)
+    {
+        var s = Doc.Session;
+        panel.Children.Add(new TextBlock { Text = "Morph targets", FontWeight = FontWeight.Bold, Foreground = Look.Text, Margin = new Thickness(0, 8, 0, 0) });
+        if (o.Morphs.Count == 0) panel.Children.Add(Note("None. A target is another object with the same points in the same order; its weight (morph.<name>) blends toward it, keyed like any channel."));
+        foreach (var m in o.Morphs.ToList())
+        {
+            var row = new Grid { ColumnDefinitions = new ColumnDefinitions("*,70,Auto"), Margin = new Thickness(0, 2) };
+            var name = new TextBlock { Text = m.Name + (AVAModeler.Layout.Keying.IsAnimated(m.Weight) ? " ◆" : ""), Foreground = Look.Text, FontSize = 11, VerticalAlignment = VerticalAlignment.Center };
+            var weight = NumberBox(m.Weight.Evaluate(s.Frame) * 100, v =>
+            {
+                try { MorphTargets.SetWeight(s, o, m, v / 100); }
+                catch (Exception e) when (e is ArgumentException or InvalidOperationException) { Window.SetStatus(e.Message); }
+            }, "MorphWeight" + o.Morphs.ToList().IndexOf(m));
+            ToolTip.SetTip(weight, $"{m.Name}'s weight at this frame, % (0 {o.Name}'s own shape, 100 the target)");
+            var remove = Look.MakeButton("×", () => { MorphTargets.Remove(s, o, m); Reshow(); }, $"Take {m.Name} off {o.Name}");
+            Grid.SetColumn(weight, 1);
+            Grid.SetColumn(remove, 2);
+            row.Children.Add(name);
+            row.Children.Add(weight);
+            row.Children.Add(remove);
+            panel.Children.Add(row);
+        }
+        var candidates = MorphTargets.Candidates(s.Scene, o);
+        var source = new ComboBox { ItemsSource = candidates.Select(c => c.Name).ToList(), PlaceholderText = candidates.Count == 0 ? "(no object matches)" : "Another object", FontSize = 11, HorizontalAlignment = HorizontalAlignment.Stretch, Name = "MorphSource" };
+        panel.Children.Add(source);
+        panel.Children.Add(Buttons(
+            Look.MakeButton("Add Target File…", () => _ = Window.AddMorphFromFile(o), "A morph target from an object file with the same points"),
+            Look.MakeButton("Add Target Object", () =>
+            {
+                if (source.SelectedIndex < 0 || source.SelectedIndex >= candidates.Count) { Window.SetStatus("Choose the object to morph toward (one with the same points)."); return; }
+                try
+                {
+                    var m = MorphTargets.AddFromObject(s, o, candidates[source.SelectedIndex]);
+                    Window.SetStatus($"{o.Name} can morph toward {m.Name}: key its weight (morph.{m.Name}).");
+                    Reshow();
+                }
+                catch (ArgumentException e) { Window.SetStatus(e.Message); }
+            }, "A morph target from the chosen object's shape")));
     }
 }
 
