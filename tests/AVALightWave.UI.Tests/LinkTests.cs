@@ -131,7 +131,8 @@ public class LinkTests
         var offered = request["tools"]!.AsArray().Select(t => (string?)t!["name"]).ToList();
         Assert.Contains("replace_object", offered);
         Assert.DoesNotContain("run_tool", offered);
-        Assert.Equal(ToolGroups.Scene.Count + 4, offered.Count);
+        int own = typeof(AVALightWave.Mcp.LightWaveTools).GetMethods().Count(m => m.GetCustomAttributes(typeof(ModelContextProtocol.Server.McpServerToolAttribute), false).Length > 0);
+        Assert.Equal(ToolGroups.Scene.Count + own, offered.Count);
         Assert.Equal("Agent: added a light", w.Session.History.UndoLabel);
         // The chat keeps no history in a test window, and has no key of its own.
         Assert.Null(w.Chat.History);

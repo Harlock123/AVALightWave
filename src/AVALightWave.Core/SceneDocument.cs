@@ -212,6 +212,29 @@ public sealed class SceneDocument
     public void SetParent(SceneItem item, SceneItem? parent) =>
         Session.Edit($"Parent {item.Name}", () => item.Parent = parent);
 
+    // ───────────────────────────── cloning and merging ─────────────────────────────
+
+    /// <summary>Clone Item: copies of an item (an object with its bones), each offset from the one before, as one undo step; the last is chosen.</summary>
+    public IReadOnlyList<SceneItem> Clone(SceneItem item, CloneOptions options)
+    {
+        var copies = Cloning.Clone(Session, item, options);
+        Session.Select(copies[^1]);
+        Session.SetStatus(copies.Count == 1 ? $"Cloned {item.Name} as {copies[0].Name}." : $"Cloned {item.Name} {copies.Count} times ({copies[0].Name} to {copies[^1].Name}).");
+        return copies;
+    }
+
+    /// <summary>
+    /// Load from Scene: another scene's objects, nulls, bones (and lights and cameras, if asked) with their hierarchy and
+    /// motion, into this scene as one undo step. Objects that can't be read stand in as placeholders (said in the warnings).
+    /// </summary>
+    public MergeResult LoadFromScene(string path, MergeOptions? options = null)
+    {
+        var result = SceneMerge.Load(Session, path, options ?? new MergeOptions(), LoadOrNull);
+        if (result.Items.Count > 0) Session.Select(result.Items[0]);
+        Session.SetStatus($"Loaded {result.Items.Count} item(s) from {System.IO.Path.GetFileName(path)}." + (result.Warnings.Count > 0 ? " " + string.Join(" ", result.Warnings) : ""));
+        return result;
+    }
+
     // ───────────────────────────── the hub's links ─────────────────────────────
 
     /// <summary>The link tying a scene object to the document AVA Modeler has open for it (made if it has none).</summary>

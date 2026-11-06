@@ -51,6 +51,7 @@ public sealed class MainWindow : Window
     private readonly CheckBox _autoKey = new() { Content = "Auto Key", Foreground = Look.Text, Margin = new Thickness(6, 0) };
     private readonly MenuItem _undo = new(), _redo = new(), _recentScenes = new() { Header = "Recent _Scenes" }, _recentObjects = new() { Header = "Recent O_bjects" };
     private readonly DispatcherTimer _player = new();
+    private readonly DispatcherTimer _autosaveTimer = new();
     private readonly LazyToolBridge _chatTools;
     private EditMode _mode = EditMode.Objects;
     private BottomTab _bottom = BottomTab.GraphEditor;
@@ -85,6 +86,9 @@ public sealed class MainWindow : Window
     /// <summary>The chat's working folder (the Documents folder).</summary>
     internal string ChatRoot { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) is { Length: > 0 } docs
         ? docs : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+
+    /// <summary>The scene's auto-save and crash recovery (none in a window made for tests unless a test gives one).</summary>
+    internal SceneAutosave? Autosave { get; set; }
 
     /// <summary>Asks where to open or save a file (tests give their own: title, suggested name, save?).</summary>
     internal Func<string, string?, bool, Task<string?>>? PickFile { get; set; }
@@ -188,6 +192,10 @@ public sealed class MainWindow : Window
 
         if (!forTests)
         {
+            Autosave = new SceneAutosave(SceneAutosave.DefaultFolder);
+            _autosaveTimer.Interval = TimeSpan.FromMinutes(Math.Max(1, options.AutosaveMinutes));
+            _autosaveTimer.Tick += async (_, _) => await AutosaveNow();
+            if (options.AutosaveMinutes > 0) _autosaveTimer.Start();
             Opened += async (_, _) => await Started(args);
             Closing += Closing_;
             SyncHub();
@@ -196,6 +204,7 @@ public sealed class MainWindow : Window
         Closed += (_, _) =>
         {
             _player.Stop();
+            _autosaveTimer.Stop();
             Chat.Stop();
             Chat.SaveHistory();
             _ = _chatTools.DisposeAsync().AsTask();
@@ -529,6 +538,7 @@ public sealed class MainWindow : Window
             {
                 Group("_File",
                     Item("_New Scene", () => _ = NewScene(), "Ctrl+N"), Item("_Load Scene…", () => _ = LoadSceneDialog(), "Ctrl+O"), _recentScenes,
+                    Item("Load _from Scene…", () => _ = LoadFromSceneDialog()),
                     Item("_Save Scene", () => _ = SaveScene(false), "Ctrl+S"), Item("Save Scene _As…", () => _ = SaveScene(true), "Ctrl+Shift+S"), "-",
                     Item("Load _Object…", () => _ = LoadObjectDialog()), _recentObjects,
                     Item("_Replace Object…", () => { if (Session.Selected is ObjectItem o) _ = ReplaceObjectDialog(o); else SetStatus("Choose an object to replace."); }),
@@ -545,6 +555,7 @@ public sealed class MainWindow : Window
                     Item("Add _Spot Light", () => Session.Add(new LightItem("Spot Light", LightType.Spot))),
                     Item("Add _Area Light", () => Session.Add(new LightItem("Area Light", LightType.Area))),
                     Item("Add _Camera", () => Session.Add(new CameraItem("Camera"))), "-",
+                    Item("C_lone Item…", () => OpenClone()),
                     Item("_Remove Item", () => { if (Session.Selected is { } i) Session.Remove(i); })),
                 Group("_View", views.Select((v, n) => (object)Item($"_{n + 1} {v}", () => View.Mode = v)).Concat(new object[]
                 {
@@ -585,6 +596,10 @@ public sealed class MainWindow : Window
         settings), Surfaces (an object's colours and shading), Effects (backdrop, ambient occlusion, environment), Render
         and Options. Under the view, the graph editor, the dope sheet or the Scene Editor (hierarchy, visibility, locks
         and keys).
+
+        Items › Clone Item makes copies of the chosen item, each moved, turned, sized and delayed from the one before; File
+        › Load from Scene brings another scene's items (with their hierarchy and motion) into this one. The scene is
+        auto-saved every few minutes while it has changes, and offered back if AVALightWave didn't close properly.
 
         Edit in Modeler (Ctrl+E) opens the chosen object in AVA Modeler; saving it there updates it here, keeping its
         motion. AVA Modeler's File › Send to AVALightWave puts its object in this scene.
@@ -707,6 +722,17 @@ public sealed class MainWindow : Window
         return w;
     }
 
+    /// <summary>Clone Item: the requester for copies of the chosen item (not a bone: its object brings it).</summary>
+    public CloneRequester? OpenClone()
+    {
+        if (Session.Selected is not { } item) { SetStatus("Choose an item to clone."); return null; }
+        if (item is Bone b) { SetStatus($"{item.Name} is a bone: clone its object, {b.Owner.Name}, and its bones come with it."); return null; }
+        var w = new CloneRequester(Document, item);
+        if (_forTests) w.Show(this);
+        else _ = Dialogs.ShowModal(w, this);
+        return w;
+    }
+
     public void Render()
     {
         _player.Stop();
@@ -802,6 +828,22 @@ public sealed class MainWindow : Window
             SetStatus($"Can't save: {e.Message}");
             if (!_forTests) await Dialogs.Message(this, "Can't save", e.Message);
         }
+    }
+
+    /// <summary>File › Load from Scene: another scene's items into this one (asks which kinds first).</summary>
+    public async Task LoadFromSceneDialog()
+    {
+        var path = await Pick("Load items from a scene", null, false, Scenes);
+        if (path != null) OpenLoadFromScene(path);
+    }
+
+    /// <summary>The Load from Scene requester for a scene file.</summary>
+    public LoadFromSceneRequester OpenLoadFromScene(string path)
+    {
+        var w = new LoadFromSceneRequester(Document, path);
+        if (_forTests) w.Show(this);
+        else _ = Dialogs.ShowModal(w, this);
+        return w;
     }
 
     public async Task LoadObjectDialog()
@@ -934,7 +976,9 @@ public sealed class MainWindow : Window
 
     private async Task Started(string[] args)
     {
-        if (args.FirstOrDefault(File.Exists) is not { } path) return;
+        bool recovered = await OfferRecovery();
+        Autosave?.Start();
+        if (recovered || args.FirstOrDefault(File.Exists) is not { } path) return;
         if (Path.GetExtension(path).ToLowerInvariant() is ".lws" or SceneJson.Extension) await LoadScene(path);
         else if (LoadObject(path) is { } item && AppLauncher.LinkArgument(args) is { } link)
         {
@@ -954,8 +998,38 @@ public sealed class MainWindow : Window
         }
     }
 
+    /// <summary>
+    /// If AVALightWave didn't close properly last time and left an auto-save, offers it back; returns whether it was
+    /// recovered (the scene then untitled, its changes unsaved).
+    /// </summary>
+    internal async Task<bool> OfferRecovery()
+    {
+        if (Autosave?.Waiting() is not { } info) return false;
+        var name = info.Scene != null ? Path.GetFileName(info.Scene) : "an untitled scene";
+        if (!await Confirm("Recover your work?", $"AVALightWave didn't close properly last time. An auto-save of {name} from {info.Saved:g} is waiting. Open it?", "Open it", "No thanks"))
+            return false;
+        try
+        {
+            Autosave.Recover(Document);
+            return true;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException)
+        {
+            SetStatus($"The auto-save couldn't be read: {e.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>Writes the auto-save now if the scene has unsaved changes (the timer calls it every few minutes).</summary>
+    internal async Task AutosaveNow()
+    {
+        if (Autosave is { } a && await a.SaveAsync(Document)) SetStatus($"Auto-saved at {DateTime.Now:t}.");
+    }
+
     private void CleanExit()
     {
+        _autosaveTimer.Stop();
+        Autosave?.Finish();
         Options.ViewMode = View.Mode.ToString();
         Options.Save();
         Preferences.Save();

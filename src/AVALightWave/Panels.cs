@@ -186,7 +186,9 @@ public sealed class ItemsPanel : LayoutPanel
                     Look.MakeButton("Save Object", () => { if (Obj() is { } o) _ = Window.SaveObject(o, false); }, "Save the chosen object's geometry and surfaces to its file"),
                     Look.MakeButton("Save All Objects", () => Window.SaveAllObjects(), "Save every object with unsaved changes"),
                     Look.MakeButton("Edit in Modeler", () => { if (Obj() is { } o) _ = Window.EditInModeler(o); else Window.SetStatus("Choose an object to edit in AVA Modeler."); }, "Open the chosen object in AVA Modeler; its saves come back here (Ctrl+E)"),
-                    Look.MakeButton("Add Null", () => s.Add(new NullItem("Null")), "An invisible item to parent things to"));
+                    Look.MakeButton("Add Null", () => s.Add(new NullItem("Null")), "An invisible item to parent things to"),
+                    Look.MakeButton("Clone…", () => Window.OpenClone(), "Copies of the chosen item, each offset from the one before"),
+                    Look.MakeButton("Load from Scene…", () => _ = Window.LoadFromSceneDialog(), "Bring another scene's items into this one"));
             case EditMode.Bones:
                 ObjectItem? Owner() => (s.Selected as Bone)?.Owner ?? Window.CurrentObject;
                 return Buttons(
@@ -216,9 +218,11 @@ public sealed class ItemsPanel : LayoutPanel
                     Look.MakeButton("Distant", () => s.Add(new LightItem("Distant Light")), "Add a distant light (like the sun)"),
                     Look.MakeButton("Point", () => s.Add(new LightItem("Point Light", LightType.Point)), "Add a point light"),
                     Look.MakeButton("Spot", () => s.Add(new LightItem("Spot Light", LightType.Spot)), "Add a spotlight"),
-                    Look.MakeButton("Area", () => s.Add(new LightItem("Area Light", LightType.Area)), "Add an area light (soft shadows)"));
+                    Look.MakeButton("Area", () => s.Add(new LightItem("Area Light", LightType.Area)), "Add an area light (soft shadows)"),
+                    Look.MakeButton("Clone…", () => Window.OpenClone(), "Copies of the chosen light, each offset from the one before"));
             default:
-                return Buttons(Look.MakeButton("Add Camera", () => s.Add(new CameraItem("Camera")), "Add a camera"));
+                return Buttons(Look.MakeButton("Add Camera", () => s.Add(new CameraItem("Camera")), "Add a camera"),
+                    Look.MakeButton("Clone…", () => Window.OpenClone(), "Copies of the chosen camera, each offset from the one before"));
         }
     }
 
@@ -471,6 +475,8 @@ public sealed class OptionsPanel : LayoutPanel
         var auto = new CheckBox { Content = "Auto Key when starting", IsChecked = options.AutoKey, Foreground = Look.Text };
         auto.IsCheckedChanged += (_, _) => { options.AutoKey = auto.IsChecked == true; options.Save(); };
         Children.Add(auto);
+        Children.Add(Label("Auto-save the scene every (minutes, 0 for never; from the next start)"));
+        Children.Add(NumberBox(options.AutosaveMinutes, v => { options.AutosaveMinutes = Math.Clamp((int)v, 0, 600); options.Save(); }, "AutosaveMinutes"));
         Children.Add(Note($"Settings are kept in {(prefs.Location != null ? Path.GetDirectoryName(prefs.Location) : "memory only (this window was made for tests)")}."));
     }
 }
