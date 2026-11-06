@@ -35,14 +35,14 @@ public sealed class PreviewWindow : Window
     private readonly TextBox _first, _last, _step, _width;
     private readonly CheckBox _shaded = new() { Content = "Shaded", Foreground = Look.Text, Name = "PreviewShaded" };
     private readonly CheckBox _loop = new() { Content = "Loop", IsChecked = true, Foreground = Look.Text, Name = "PreviewLoop" };
-    private readonly ComboBox _through = new() { ItemsSource = new[] { "Scene camera", "Active view" }, Width = 130, Name = "PreviewThrough" };
+    private readonly ComboBox _through = new() { ItemsSource = new[] { "Scene camera", "Active view" }, Width = 150, Name = "PreviewThrough" };
     private readonly Slider _slider = new() { Minimum = 0, Maximum = 0, SmallChange = 1, LargeChange = 10, IsSnapToTickEnabled = true, TickFrequency = 1, Name = "PreviewSlider" };
     private readonly Button _play, _stopMaking;
     private readonly List<Button> _needFrames = [];
     private readonly DispatcherTimer _timer = new();
     private WriteableBitmap? _bitmap;
     private CancellationTokenSource? _cancel;
-    private bool _sliding;
+    private bool _sliding, _making;
 
     /// <summary>The preview shown (being made, or made).</summary>
     public Preview? Preview { get; private set; }
@@ -211,6 +211,7 @@ public sealed class PreviewWindow : Window
         _progress.Value = 0;
         Say($"Making {p.Frames.Count} frames at {p.Width} × {p.Height}, {p.LooksThrough}…");
         var cancel = _cancel = new CancellationTokenSource();
+        _making = true;
         Making = Run(p, cancel);
         UpdateControls();
         return Making;
@@ -229,6 +230,7 @@ public sealed class PreviewWindow : Window
         });
         int made = await p.MakeAsync(progress, cancel.Token);
         finished = true;
+        if (Preview == p) _making = false;
         if (_cancel == cancel) _cancel = null;
         cancel.Dispose();
         if (Preview != p) return;
@@ -248,7 +250,7 @@ public sealed class PreviewWindow : Window
     private void UpdateControls()
     {
         int count = Preview?.Count ?? 0;
-        bool making = !Making.IsCompleted;
+        bool making = _making;
         _stopMaking.IsEnabled = making;
         foreach (var b in _needFrames) b.IsEnabled = count > 0 && !making;
         _sliding = true;
@@ -291,7 +293,7 @@ public sealed class PreviewWindow : Window
     /// <summary>Plays from the frame shown (from the first, if the last is shown and Loop is off) at the scene's frame rate.</summary>
     public void Play()
     {
-        if (Preview is not { Count: > 1 } p || !Making.IsCompleted) return;
+        if (Preview is not { Count: > 1 } p || _making) return;
         if (!Loop && Index >= p.Count - 1) Show(0);
         _timer.Interval = p.FrameDuration > TimeSpan.Zero ? p.FrameDuration : TimeSpan.FromMilliseconds(33);
         _timer.Start();
@@ -320,7 +322,7 @@ public sealed class PreviewWindow : Window
     public async Task<string> Save(PreviewOutput output)
     {
         if (Preview is not { Count: > 0 } p) return Say("Make a preview first.");
-        if (!Making.IsCompleted) return Say("Wait for the preview to be made (or stop it) before saving.");
+        if (_making) return Say("Wait for the preview to be made (or stop it) before saving.");
         Stop();
         var (ext, title, type) = output switch
         {

@@ -30,6 +30,9 @@ public class PreviewWindowTests
         return (w, bench);
     }
 
+    private static Button Button(Window w, string label) =>
+        Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(w).OfType<Button>().First(b => (string?)b.Content == label);
+
     private static PreviewWindow Made(MainWindow w)
     {
         var p = w.MakePreview();
@@ -53,6 +56,8 @@ public class PreviewWindowTests
         Assert.NotEqual(p.Preview.Image(0), p.Preview.Image(9));
         Assert.Equal(0, p.Index);
         Assert.False(p.Playing);
+        Assert.All(new[] { "Save PNGs…", "Save MP4…", "Save GIF…", "Play" }, label => Assert.True(Button(p, label).IsEnabled, label));
+        Assert.False(Button(p, "Stop").IsEnabled);
         // Asking again shows the same window.
         Assert.Same(p, w.MakePreview());
         p.Close();
