@@ -781,7 +781,13 @@ public sealed class MainWindow : Window
         View › Layout (Ctrl+1 to Ctrl+4) splits the middle into one view, two side by side, two stacked or four, each with
         its own view type (the list in its corner); the last one clicked is the active view, which 1 to 6 change.
         Render › Make Preview (Shift+P) plays a quick wireframe or shaded flipbook of the frames and saves it as PNGs, an
-        MP4 or a GIF.
+        MP4 or a GIF. Render › Render Queue sends the scene as a job to the local queue or a render farm folder, which
+        render nodes ("AVALightWave --render-node <folder>", on any machine that reaches it) render frame by frame.
+
+        The Lights panel sets a light's shadow type (ray traced or a shadow map), lens flare and volumetric beam; the
+        Images panel keeps pictures and numbered sequences, which the Effects panel's Compositing puts behind and over the
+        render. Items › Motion Options adds motion modifiers (lag, jitter, cycle, oscillate) and loads or saves .mot
+        motion files. The Macros menu runs Lua scene macros, each one undo step.
 
         Ctrl+Z undoes any change to the scene, an AI agent's included. F9 renders a frame, F10 an animation, F4 opens the
         AI Chat. Scenes save as LightWave .lws (objects by their files) or .avascene (everything).

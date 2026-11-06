@@ -25,31 +25,92 @@ workspace of its own; AVALightWave is the standalone Layout, and the hub joins t
 | Classic Layout 4/5 | AVALightWave |
 |---|---|
 | The Layout view: Camera, Perspective, Top, Front (LightWave's Back), Side and Light views | The same six (View menu, the view list, keys 1 to 6); the camera view with its frame and safe areas; the light view looks through the chosen light (a spot's cone wide), for aiming |
+| One view (LightWave's later versions: viewport layouts) | View › Layout (Ctrl+1 to Ctrl+4, or the toolbar's list): Single, Side by Side (Perspective + Camera), Stacked (Top over Camera) and Quad (Top, Perspective, Front, Camera). Each pane has its own view type (the list in its corner) and its own zoom and pan; the last pane clicked is outlined and takes 1 to 6; A frames every pane. Remembered between runs. The views are drawn with OpenGL (the engine's renderer), falling back to software drawing where OpenGL can't start |
 | Edit: Objects, Bones, Lights, Cameras | The Edit buttons (Shift+O, B, L, C): the view picks only that kind (nulls count as objects), and choosing an item of another kind anywhere switches to its mode |
 | Selected Item pop-up, arrow keys | Selected Item lists the mode's items; ↑ ↓ step through them |
 | Mouse: Move, Rotate, Size, Stretch, with X, Y, Z | The Mouse buttons (T, Y, H, Shift+H) and the X, Y, Z buttons limiting the axes (heading, pitch, bank when rotating); the right button works the third axis (depth, bank, Z) |
 | Numeric requester | Numeric (N): position, rotation and scale at the frame, typed, one undo step |
 | Create Key, Delete Key, Auto Key | The same (Enter, Delete), keyed by the engine's one keying rule |
+| Clone Item | Items › Clone Item (and the panels' Clone buttons): copies of an object (with its bones), light, camera or null with its motion, as many as asked, each moved, turned, sized and delayed in time from the one before ("Ball (2)", "Ball (3)"…); one undo step |
+| Load Motion, Save Motion; motion plug-ins | Items › Load Motion and Save Motion: an item's nine channels as a LightWave motion file (.mot, version 1 from Layout 4/5 and version 3 from LightWave 6 on are read; version 3 written), so one item's motion goes onto another. Items › Motion Options: motion modifiers in the spirit of Layout 5's motion plug-ins: Lag (follow another item some frames behind), Jitter, Cycle (Layout 5's Cyclist: one item's channel drives another's keys) and Oscillate |
 | The frame slider and play controls | The timeline with the chosen item's key marks, a frame box, first, back, play, on, last (Home, ←, Space, →, End) |
-| Scene, Objects, Bones, Lights, Camera, Surfaces, Images, Effects, Record, Options panels | Scene, Objects, Bones, Lights, Camera, Surfaces, Effects, Render and Options, re-imagined as panels docked on the right (the buttons across the top), not modal requesters |
+| Scene, Objects, Bones, Lights, Camera, Surfaces, Images, Effects, Record, Options panels | Scene, Objects, Bones, Lights, Camera, Surfaces, Images, Effects, Render and Options, re-imagined as panels docked on the right (the buttons across the top), not modal requesters |
 | Scene Overview (later the Scene Editor) | The Scene Editor (E): the hierarchy, an eye to show or hide each item, a lock to keep the mouse off it, and its keys across the frames |
-| Motion graph | The engine's graph editor (G) with TCB keys, and its dope sheet (D) |
+| Motion graph | The engine's graph editor (G): every curve of the chosen item (motion, intensity, flare intensity, zoom, dissolve, morph weights…), several at once; keys chosen by click, Shift and box across curves, dragged in value or time; per key tension, continuity, bias and a span: TCB, Linear, Stepped or Bezier (in and out slopes); before and after behaviours (Reset, Constant, Repeat, Oscillate, Offset Repeat, Linear); Copy, Paste (onto another curve too), Delete and Scale time. And its dope sheet (D) |
 | Load Scene, Save Scene, Save All Objects | .lws (LightWave 4/5 and later) and .avascene (everything, meshes inside); saving an .lws first saves any object with no file of its own, as LWOB, in an Objects folder beside it |
+| Load From Scene | File › Load from Scene: another .lws or .avascene's objects (with their bones), nulls, and if wanted its lights and cameras, with their hierarchy and motion, into the open scene; names already taken become "Ball (2)"; one undo step |
+| (crash recovery) | The scene is auto-saved every few minutes while it has changes (in AVALightWave's app-data folder, never over your file); if AVALightWave didn't close properly, the next start offers it back |
 | Load Object, Replace Object | Load as many objects as you like (LWOB, LWO2, OBJ, GEO, glTF/GLB, STL); Replace Object swaps an item's geometry for another file's, keeping its motion, parent and bones |
 | Parenting, pivots, nulls | In each item's settings; nulls from the Items menu or the Objects panel |
-| Bones, IK, Skelegons | The engine's bones (Add Bone, Skelegons → Bones), full-time IK with goals, limits, locks and anchors |
+| Bones, IK, Skelegons | The engine's bones (Add Bone; Items › Skelegons → Bones turns a loaded object's skelegons into bones in one step), full-time IK with goals, limits, locks and anchors |
+| Metamorph (morph target, morph amount envelope) | The Objects panel's Morph targets: an object blends toward another object file's shape (or another object's) with the same points, by its keyable morph.<name> weight, shown as a percentage at the frame; several add up; in the views, previews and renders |
+| Object Dissolve | The Objects panel's Dissolve % (the keyable `dissolve` channel): the renderer lets what's behind show through, and the views draw it with screen-door transparency |
 | Lights, Camera | Distant, point, spot and area lights with soft shadows; zoom, resolution presets, depth of field and motion blur |
+| Lens Flare, Volumetric lights, Shadow Map | The Lights panel: a lens flare (glow, halo ring, star streaks, fading behind objects, off screen and with distance; its intensity keyable), a volumetric beam in the air (spot and point lights; intensity, quality, length, shadowed or not), and the shadow type: ray traced, a shadow map (size, fuzziness; much faster for soft shadows) or off |
+| Images panel; Effects › Compositing | The Images panel: pictures and numbered sequences (sky0001.png…) with a frame offset and looping, for compositing and textures (a texture whose file is a sequence plays it in renders). The Effects panel's Compositing: a background image where the camera sees nothing, and a foreground image over the render, keyed by a colour range or alpha, with a dissolve |
+| Make Preview | Render › Make Preview (Shift+P): a wireframe or shaded flipbook of a range of frames drawn as the view draws them (not ray traced), through the camera or the active view, made in the background, then played at the scene's frame rate with loop and stepping, and saved as numbered PNGs, MP4 or GIF (with ffmpeg) |
+| ScreamerNet (network rendering) | Render › Render Queue: batch rendering of scene jobs, and a render farm in a shared folder with headless render nodes (`AVALightWave --render-node <folder>`) on this or other machines; below |
+| ARexx/LScript macros | Lua scene macros on AVA Modeler's macro engine and sandbox (the Macros menu, your macro folder); below |
 | Rendering | The engine's ray tracer (F9) with ambient occlusion, environment lighting, depth of field and motion blur; Render Animation (F10) to PNG frames and, with ffmpeg, MP4 and GIF; glTF export |
 | The hub | A live link with AVA Modeler (below) |
 
 Every change to the scene (a drag, a value typed, a key, a panel setting, a surface, Replace Object, an update from
 AVA Modeler, an AI agent's call) is one undo step: Ctrl+Z, and Ctrl+Shift+Z or Ctrl+Y.
 
+![The quad layout: Top, Perspective (active, outlined), Front and Camera panes on the showcase scene, each with its own view list](Images/AVALightWave-quad.png)
+
+![The graph editor with the bouncing ball's height and squash curves chosen, a Bezier key easing the top of the second bounce and the landings given tension](Images/AVALightWave-graph-editor.png)
+
 ![The light view through the key spot, with the Lights panel and the Scene Editor: the floor locked, the camera's and the ball's keys across the frames](Images/AVALightWave-scene-editor.png)
 
 ![The Surfaces panel changing the ball's colour, the camera view and the dope sheet](Images/AVALightWave-surfaces.png)
 
 ![A ray-traced frame of the showcase scene](Images/AVALightWave-render.png)
+
+![The showcase rendered with a lamp's lens flare (glow, halo ring and star) and its glow in the air, the key spot's beam shadowed through a fuzzy shadow map](Images/AVALightWave-effects.png)
+
+![The Lights panel with the lamp's lens flare and volumetric settings](Images/AVALightWave-lights-panel.png)
+
+![The Images panel with a sky, a foreground frame and a numbered sequence, the camera view behind](Images/AVALightWave-images.png)
+
+![Compositing: the sky behind the render, the frame laid over it with its green keyed out, and the ball half dissolved](Images/AVALightWave-composite.png)
+
+![Make Preview: a shaded flipbook of the showcase through its camera, playing at 30 frames a second](Images/AVALightWave-preview.png)
+
+### Batch and network rendering
+
+Render › Render Queue sends the scene as it is now (a self-contained copy, its images included) as a job with its
+frames, size and samples. Jobs go to the local queue or to a **render farm folder**, in the spirit of ScreamerNet: a
+folder on this computer or on a network share that every render machine can reach. **Render nodes** work it frame by
+frame: the window's own (Start Local Rendering) and any number of headless ones on this or other machines:
+
+```bash
+AVALightWave --render-node /mnt/farm             # a render node: renders frames of the folder's jobs until stopped
+AVALightWave --render-node /mnt/farm --once      # until nothing is left, then exits (also --name, --threads, --poll)
+```
+
+Each node claims frames the others haven't (a claim file made with create-new, which is atomic on local disks and
+SMB and NFS shares), writes the frame, then a done file; a node that dies has its frames taken over after two minutes.
+The queue shows each job's frames done, its state and the nodes on it; Cancel, Up/Down and Remove Finished manage it.
+There's **no network listener**: the shared folder is the whole protocol. Nodes read only what's inside each job's
+folder (every path resolved, links followed, and anything outside refused) and run nothing from it.
+
+![The Render Queue on a farm folder: a job rendered by a node, another cancelled, and the command to start render nodes](Images/AVALightWave-render-queue.png)
+
+### Macros
+
+Macros › Run Macro runs a Lua script on the scene, on AVA Modeler's macro engine and in its sandbox (no os, io or
+require; stopped after 30 seconds). A whole macro is one undo step, and one that fails leaves the scene as it was. The
+Macros menu lists the `.lua` files in your macro folder (`macros` in AVALightWave's settings folder) and shows the
+reference: `items`, `frame`, `frames`, `addobject`, `addnull`, `addlight`, `addcamera`, `remove`, `select`,
+`rename`, `parent`, `setpos`/`setrot`/`setscale` (keys at a frame), `getpos`/`getrot`/`getscale`, `key` (with
+Tension, Continuity, Bias and Span), `unkey`, `get`, `channels`, `light`, `clone`, `render` and `print`.
+
+```lua
+local ball = addobject("objects/ball.lwo")
+for f = 1, 60, 10 do key(ball, "position.y", f, math.abs(math.sin(f / 10)) * 2) end
+clone(ball, 3, {1.5, 0, 0}, 5)      -- three more, each 1.5 m along and 5 frames later
+```
 
 ### The hub: AVALightWave and AVA Modeler together
 
@@ -67,6 +128,12 @@ both unless you turn it off (Options › Link with AVA Modeler here; Edit › Pr
   of any file the scene uses updates its objects too.
 - **Send to AVALightWave** (AVA Modeler's File menu) puts AVA Modeler's object in this scene, or updates the one it
   was sent as before (starting AVALightWave with it if need be).
+- **Live sync**: while you model a linked object in AVA Modeler, its changes arrive here a moment after you stop (an
+  unsaved copy through AVA Modeler's hub folder; your object keeps its own file and is marked as changed), as one undo
+  step for the whole burst. Saving in AVA Modeler updates it as before.
+- **The hub light** (the right of the status line) says whether AVA Modeler is there, the object linked and the last
+  update: "Hub: AVA Modeler connected · linked pawn · synced 14:02:11", "Hub: on (AVA Modeler not running)" or
+  "Hub: off". It's looked at every few seconds, off the window's thread.
 - Either program works alone: when the other isn't there, nothing waits more than a moment.
 
 ### AI agents and the AI Chat
@@ -89,13 +156,18 @@ they make is one undo step.
 
 | Tools | |
 |---|---|
-| The engine's scene tools | `get_scene`, `get_keys`, `new_scene`, `open_scene`, `save_scene`, `export_scene`, `add_object` (a file), `add_light`, `add_camera`, `add_null`, `add_bone`, `remove_item`, `set_item`, `set_transform`, `look_at`, `set_key`, `delete_key`, `set_end_behavior`, `set_follow_path`, `bake_path`, `shift_keys`, `scale_keys`, `set_scene`, `undo_scene`, `redo_scene`, `render_scene`, `render_scene_view`, `render_animation`, `make_movie`, `set_morph`, `remove_morph`, `add_displacement`, `set_displacement`, `remove_displacement`, `skelegons_to_bones`, `set_ik`, `bake_ik` |
-| AVALightWave's own | `replace_object` (Replace Object, one undo step), `save_object` (an object to a file in the working folder), `edit_in_modeler` (the hub; in the open window), `hub_status` |
+| The engine's scene tools (47) | `get_scene`, `get_keys`, `new_scene`, `open_scene`, `save_scene`, `export_scene`, `add_object` (a file), `add_light`, `add_camera`, `add_null`, `add_bone`, `remove_item`, `set_item`, `set_transform`, `look_at`, `set_key` (tension, continuity, bias, and a span: `tcb`, `linear`, `stepped` or `bezier` with `in_slope` and `out_slope`), `delete_key`, `set_end_behavior`, `set_follow_path`, `bake_path`, `shift_keys`, `scale_keys`, `set_scene`, `undo_scene`, `redo_scene`, `render_scene`, `render_scene_view`, `render_animation`, `make_movie`, `set_morph`, `remove_morph`, `add_displacement`, `set_displacement`, `remove_displacement`, `skelegons_to_bones`, `set_ik`, `bake_ik`, `add_motion_modifier`, `set_motion_modifier`, `remove_motion_modifier` (lag, jitter, cycle, oscillate), `set_lens_flare`, `set_volumetric_light`, `set_shadow_map`, `set_dissolve`, `load_image`, `remove_image`, `set_compositing` |
+| AVALightWave's own (13) | `replace_object` (Replace Object, one undo step), `save_object` (an object to a file in the working folder), `edit_in_modeler` (the hub; in the open window), `hub_status`, `clone_item` (copies offset in place and time), `load_from_scene` (another scene's items, names kept apart), `add_morph_target` (a target from a file or another object), `load_motion` and `save_motion` (.mot files), `make_preview` (a flipbook of PNGs, or a movie), `queue_render` and `render_queue_status` (the render queue or a farm folder), `run_macro` (a Lua scene macro, one undo step, paths kept in the working folder) |
 
-Recipes (MCP prompts), step-by-step plans with the exact calls: `stage_object` (load, light from three sides, frame,
-render), `object_turntable` (a null turning once, rendered to frames and a movie), `camera_flyby` (the camera on a
-path through nulls, keyed to keep the object in view), `light_sweep` (a spot fading in, turning across and out), and
-the engine's `three_point_lighting`.
+60 tools in all. Recipes (MCP prompts, 12), step-by-step plans with the exact calls: `stage_object` (load, light from
+three sides, frame, render), `object_turntable` (a null turning once, rendered to frames and a movie), `camera_flyby`
+(the camera on a path through nulls, keyed to keep the object in view), `light_sweep` (a spot fading in, turning
+across and out), `render_on_farm` (a turntable sent to a farm folder as a job), `clone_stagger` (a bouncing object
+cloned into a row, each bounce later, checked with a preview), `light_beams` (a volumetric spotlight with a shadow map
+and a lens flare), `composite_shot` (a background picture, a keyed foreground and an object dissolving in),
+`rig_from_skelegons` (the sample arm rigged in one step and keyed with Bezier, stepped and TCB keys),
+`follow_and_jitter` (lag, jitter and oscillate modifiers, and a motion carried in a .mot file), `morph_and_macro` (a
+morph envelope, and a Lua macro ringing the object with crates), and the engine's `three_point_lighting`.
 
 ## Download and run
 
@@ -121,10 +193,12 @@ in Modeler to start it.
 | Animate | The timeline; the graph editor; the dope sheet | Enter Create Key, Delete Delete Key; ← → a frame, Home, End; Space play |
 | Look | Wheel zooms; middle-drag (or Alt-drag in a flat view) pans; Alt-drag turns the perspective view | 1 to 6 the views, A fit; G graph editor, D dope sheet, E Scene Editor |
 | Files | File menu, Recent Scenes and Recent Objects | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Shift+S, Ctrl+Q |
-| Elsewhere | | Ctrl+E Edit in Modeler, F4 AI Chat, F9 render, F10 animation; Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo |
+| Views | Click a pane to make it the active one; its corner list sets its view | Ctrl+1 single, Ctrl+2 side by side, Ctrl+3 stacked, Ctrl+4 quad; 1 to 6 the active pane's view; A frames every pane |
+| Elsewhere | | Ctrl+E Edit in Modeler, F4 AI Chat, F9 render, F10 animation, Shift+P Make Preview; Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo |
 
-`samples/` has objects (a pawn, a crate, a ball, a floor and the engine's spaceship) and a showcase scene as .lws and
-.avascene; `dotnet run samples/make_samples.cs` makes them again with the engine's tools.
+`samples/` has objects (a pawn, a crate, a ball, a floor, the engine's spaceship, an arm with skelegons and the pawn
+squashed as its morph target), images (a sky, a keyed foreground frame and a numbered sequence) and a showcase scene as
+.lws and .avascene; `dotnet run samples/make_samples.cs` makes them again with the engine's tools.
 
 ## Building and testing
 
@@ -141,9 +215,9 @@ It needs the .NET 10 SDK. AVALightWave's own tests (the engine's are in its repo
 
 | Tests | Count | What they cover |
 |---|---|---|
-| Core | 21 | The scene document: a new scene; objects of every format, several to a scene; .lws saved with an object that had no file written beside it, and loaded back with its motion and parent; .avascene keeping hidden and locked items with the meshes inside; a missing object's placeholder; the sample scenes; Replace Object keeping motion and bones, with undo, and keeping a chosen name; surfaces changed as undo steps and saved; Save Object by extension; hiding, locking and parenting as steps. Edit modes and stepping through items; the Scene Editor's hierarchy (bones under their object), flags and keys. Settings saving only where loaded from. The hub both ways with a stand-in AVA Modeler on pipes of the tests' own: Edit in Modeler by file and by a copy, a refusal, starting AVA Modeler (faked) when it isn't there, a save updating the linked object (under a new name) keeping its motion as one undo step, a save with no link updating every object from that file, Send to AVALightWave adding then updating, hello, refusals and a second copy on the same pipe |
-| Mcp | 13 | The Layout-only server: exactly the scene tools and its own, no modeling tool, its instructions, descriptions and recipes; add_object needing a file; replace_object (motion kept, undo, its mistakes changing nothing); save_object inside the working folder (overwrite, formats) and an .lws referring to it; the hub tools headless and with a window; `AVALightWave --mcp` headless and its help; the chat's prompt and core tools; every recipe followed call by call through the server, its last picture not blank and its result checked |
-| UI | 19 | The window headless: its start, edit modes and what the view picks, keys (frames, items, mouse modes, views, Enter, Ctrl+Z), axes, the numeric requester, every panel (a spot added, frames and resolution typed, each an undo step), the Bones panel adding bones to the current object, the Options panel joining the hub and letting agents in, the Surfaces panel, the Scene Editor's eye, lock and names, files through the menus' commands (Load Object, Save Scene, Replace Object, recent files, a missing scene), dragging in the view; the hub end to end (Ctrl+E to a stand-in AVA Modeler, its save updating the scene live, Ctrl+Z, Send to AVALightWave); an agent through AVALightWave's own live pipe; the AI Chat against a fake Anthropic API (no real calls); and the README's screenshots |
+| Core | 67 | The scene document: a new scene; objects of every format, several to a scene; .lws saved with an object that had no file written beside it, and loaded back with its motion and parent; .avascene keeping hidden and locked items with the meshes inside; a missing object's placeholder; the sample scenes; Replace Object keeping motion and bones, with undo, and keeping a chosen name; surfaces changed as undo steps and saved; Save Object by extension; hiding, locking and parenting as steps. Edit modes and stepping through items; the Scene Editor's hierarchy (bones under their object), flags and keys. Settings saving only where loaded from. The hub both ways with a stand-in AVA Modeler on pipes of the tests' own: Edit in Modeler by file and by a copy, a refusal, starting AVA Modeler (faked) when it isn't there, a save updating the linked object (under a new name) keeping its motion as one undo step, a save with no link updating every object from that file, Send to AVALightWave adding then updating, hello, refusals and a second copy on the same pipe; live updates (`object_changed`) merging into one undo step and keeping the object's file, and the hub's status following AVA Modeler. Clone Item (motion, bones, offsets in place and time, one undo step, refusals, names), Load from Scene (hierarchy, motion, renamed clashes, lights and cameras left out, a broken file changing nothing), auto-save and recovery (only changes, the scene left as it was, recovered untitled with its unsaved objects, a clean exit); morph targets from files and objects with keyed weights; Lua scene macros (the API, one undo step, all or nothing, the sandbox and time limit, files and the macro folder); Make Preview (frames and timing, motion, shaded and wireframe, no selection box, frame shape, the memory cap, a copy of the scene, cancelling, PNGs, a movie without ffmpeg) and the view layouts' settings; the render farm (sending a job copies the scene and its images, one node and two nodes sharing a job with no frame rendered twice, a dead node's claim taken over, cancelling, ordering, a job pointing outside its folder refused with nothing outside read, malformed jobs, the command line, the local queue, real paths and links); the showcase drawn with OpenGL against software, on a real context where there is one |
+| Mcp | 29 | The Layout-only server: exactly the scene tools and its own, no modeling tool, its instructions, descriptions and recipes; add_object needing a file; replace_object (motion kept, undo, its mistakes changing nothing); save_object inside the working folder (overwrite, formats) and an .lws referring to it; the hub tools headless and with a window; `AVALightWave --mcp` headless and its help; the chat's prompt and core tools; clone_item, load_from_scene, add_morph_target, save_motion and load_motion, run_macro and make_preview, each with errors that change nothing and kept to the working folder; queue_render and render_queue_status; every recipe (12) followed call by call through the server, its last picture not blank and its result checked |
+| UI | 51 | The window headless: its start, edit modes and what the view picks, keys (frames, items, mouse modes, views, Enter, Ctrl+Z), axes, the numeric requester, every panel (a spot added, frames and resolution typed, each an undo step), the Bones panel adding bones to the current object, the Options panel joining the hub and letting agents in, the Surfaces panel, the Scene Editor's eye, lock and names, files through the menus' commands (Load Object, Save Scene, Replace Object, recent files, a missing scene), dragging in the view; the hub end to end (Ctrl+E to a stand-in AVA Modeler, its save updating the scene live, Ctrl+Z, Send to AVALightWave, live sync and the hub light); an agent through AVALightWave's own live pipe; the AI Chat against a fake Anthropic API (no real calls); Clone Item's requester, Load from Scene, crash recovery, the morph panel, Skelegons → Bones, Motion Options and motion files, the Macros menu; the Lights panel's shadow maps, flares and beams, dissolve, the Images panel and compositing; the view layouts (one, two or four panes, each pane's view, the active pane and its keys, modes in every pane, picking and dragging, remembered), the panes' OpenGL falling back to software; the preview window (Shift+P, stepping and looping, playing, saving); the Render Queue (sending, rendering here, cancelling, a farm folder, a real `--render-node` process); and the README's screenshots |
 
 The screenshots are drawn by the tests in a real (headless) window:
 
@@ -155,29 +229,55 @@ AVALIGHTWAVE_SHOTS=$PWD/Images dotnet test tests/AVALightWave.UI.Tests --filter 
 
 | Project | What it is |
 |---|---|
-| `AVALightWave.Core` | The scene document (`SceneDocument`: the engine's `LayoutSession` with scenes, objects, Replace Object, surfaces, hiding, locks and the hub's links), the Scene Editor's outline, edit modes, settings, and AVALightWave's end of the hub (`LightWaveHub`). No UI |
+| `AVALightWave.Core` | The scene document (`SceneDocument`: the engine's `LayoutSession` with scenes, objects, Replace Object, surfaces, hiding, locks, the hub's links and live updates), Clone Item, Load from Scene, auto-save and recovery, morph targets, Lua scene macros, Make Preview, the view layouts' settings, the render farm and its nodes, the Scene Editor's outline, edit modes, settings, and AVALightWave's end of the hub (`LightWaveHub`). No UI |
 | `AVALightWave.Mcp` | The Layout-only MCP profile of the engine's server, AVALightWave's own tools and recipes, and the chat's prompt. No UI |
-| `AVALightWave` | The window, its panels, the Scene Editor, the numeric requester, live agents and the AI Chat |
+| `AVALightWave` | The window, its panels (Images among them), the view layouts and their OpenGL surfaces, the Scene Editor, the requesters (numeric, Clone Item, Load from Scene, Motion Options), the preview window, the Render Queue, the Macros menu, `--render-node`, live agents and the AI Chat |
 | `external/AVAModeler` | The engine, as a git submodule: AVA Modeler's Core, Formats, Geometry, Rendering, Scene, Layout, Layout.UI, Mcp, Chat, Chat.UI and Hub projects, referenced as they are (one copy, never forked) |
 
-Reused from the engine: the scene model and its undo, envelopes and keying, bones and IK, paths, morphs and
-displacements, LWS/LWO/glTF and every object format, the ray tracer and its effects, animation rendering and movies,
-the Layout view (`SceneView`), the item panel (`ItemPropertiesPanel`), the graph editor, the dope sheet, the scene
-settings, the render and animation windows, the MCP server and its live pipe, the chat and its panel, and the hub's
-wire. New here: the standalone document, the window and its panels, the Scene Editor, the numeric requester, the
-Layout-only server with its tools and recipes, and AVALightWave's end of the hub.
+Reused from the engine: the scene model and its undo (merged steps for live sync), copying items between scenes,
+envelopes with their spans and keying, motion modifiers and .mot files, bones and IK, paths, morphs and displacements,
+LWS/LWO/glTF and every object format, the ray tracer and its effects (lens flares, volumetric lights, shadow maps,
+dissolve, compositing, the image list), animation rendering and movies, the Layout view (`SceneView`) and its OpenGL
+renderer and surface, the software renderer previews are drawn with, the item panel (`ItemPropertiesPanel`), the graph
+editor, the dope sheet, the scene settings, the render and animation windows, the Lua macro sandbox, the MCP server and
+its live pipe, the chat and its panel, and the hub's wire. New here: the standalone document, the window and its
+panels, the Scene Editor, the requesters, Clone Item, Load from Scene, auto-save, morph targets from files, Lua scene
+macros, Make Preview, the view layouts, the render queue and farm, the Layout-only server with its tools and recipes,
+and AVALightWave's end of the hub.
 
 ## Known limits
 
-- The Layout view is drawn in software, as the engine's is. Images (Layout's Images panel) and Record (Layout's
-  record-to-device) have no panels; textures are edited in AVA Modeler (Edit in Modeler), and the Surfaces panel sets
-  the rest of a surface.
-- There's no Clone Item yet, no motion-file loading or saving, no scene merging (Load from Scene), and no
-  auto-save or crash recovery of the scene.
-- The hub carries files, not live geometry: AVA Modeler's changes arrive when it saves or sends, not stroke by stroke.
-  An object handed to AVA Modeler without a file lives in AVALightWave's hub folder until you save it elsewhere.
+- Record (Layout's record-to-device) has no panel. Textures are edited in AVA Modeler (Edit in Modeler); the Surfaces
+  panel sets the rest of a surface. The views show a sequence texture's base image (renders play the sequence).
+- **OpenGL views**: where OpenGL can't start (no driver, a remote session), the panes go back to software drawing about
+  two seconds after the window opens; OpenGL lines are 1 pixel where the software's are 1.5, antialiased.
+- **Clone Item** copies an item and an object's bones, not its children; offsets add to every key of position,
+  rotation and scale, and the time offset moves only channels with two keys or more. **Load from Scene** leaves the
+  other scene's settings (frames, backdrop, effects, images, compositing) behind and doesn't make its camera current.
+- **Auto-save** writes a self-contained .avascene every few minutes (Options; from the next start) only while the scene
+  has changes; a recovered scene is untitled, so the first save asks where.
+- **Make Preview** is the view's software drawing (grid and item drawings included) of up to 512 MB of frames: a bigger
+  one is made smaller, and one under 160 pixels wide is refused. Playback follows a timer, so it isn't frame-accurate
+  under load; a preview through the active view is frozen as it was when made, and pixel aspect isn't applied. MP4 and
+  GIF need ffmpeg on the PATH.
+- **View layouts**: panes can't be maximised in place (switch to Single), splitter positions aren't remembered, and A
+  frames every pane rather than the active one.
+- **The render farm** compares file times with the local clock to find a dead node, so machines' clocks should agree to
+  within a minute (the take-over is after two). Paths are checked when a node loads a job: someone who can write to the
+  share could swap a file for a link afterwards, so share the farm folder only with people you trust. Farm jobs render
+  with shadows, reflections and transparency on; frames are numbered in render order (`frame0001.png`…); a movie is
+  made only by a node with ffmpeg; a failed job isn't retried (remove it and send it again); the farm folder chosen
+  isn't remembered; local rendering stops when the folder changes or the window closes; only .avascene jobs (protocol 1).
+- **Live sync**: selection changes aren't sent, and a texture's settings alone don't count as a change; an update is
+  read on the window's thread when it arrives (instant for everyday objects).
+- **Macros** run with Layout's API above (no object modeling: that's AVA Modeler's own macros), and `render` saves a
+  PNG of the current frame only.
+- **Morph targets** need the same points in the same order; the target's shape is copied when it's added. `.lws` keeps
+  no morphs (`.avascene` does).
 - Locks (`.avascene` only) keep the mouse off an item, not its numbers, keys or agents. `.lws` keeps neither locks nor
-  hidden items; the engine's own limits (README of AVA Modeler) apply to scene files, rendering and glTF.
+  hidden items, motion modifiers, volumetric lights or a sequence's offset and loop; the engine's own limits (README of
+  AVA Modeler: key spans, motion modifiers and motion files, light effects, dissolve and compositing among them) apply
+  to scene files, rendering and glTF.
 
 ## About and licence
 
