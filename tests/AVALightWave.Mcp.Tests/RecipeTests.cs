@@ -21,6 +21,7 @@ public class RecipeTests
         { "object_turntable", """{"frames": "4", "width": "48"}""" },
         { "camera_flyby", """{"frames": "12"}""" },
         { "light_sweep", """{"frames": "12", "color": "blue"}""" },
+        { "render_on_farm", """{"frames": "4", "width": "48", "samples": "1"}""" },
         { "three_point_lighting", """{"target": "pawn", "width": "64"}""" },
     };
 
@@ -41,7 +42,7 @@ public class RecipeTests
         using var b = new Bench();
         await using var s = await b.Serve();
         var tools = (await s.Client.ListToolsAsync(cancellationToken: Cancel)).Select(t => t.Name).ToHashSet();
-        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep" })
+        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm" })
         {
             var prompt = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Single(p => p.Name == name);
             Assert.False(string.IsNullOrWhiteSpace(prompt.Description));
@@ -112,6 +113,17 @@ public class RecipeTests
                 Assert.Equal(-35, spot.RotationAt(1).X, 6);
                 Assert.Equal(35, spot.RotationAt(12).X, 6);
                 Assert.Null(scene.Find("Light"));
+                break;
+            case "render_on_farm":
+                // The job waits in the farm folder until a node renders it; one does here.
+                var farm = new FarmFolder(b.Folder.File("farm"));
+                var job = Assert.Single(farm.Scan());
+                Assert.Equal(("Turntable", FarmJobState.Waiting, 4), (job.Name, job.State, job.Total));
+                Assert.Equal((48, 36), (job.Job!.Width, job.Job.Height));
+                var rendered = FarmNode.RunAsync(farm.Root, new FarmNodeOptions { Once = true, Threads = 1 }, Cancel).GetAwaiter().GetResult();
+                Assert.Equal(4, rendered.Rendered);
+                Assert.Equal(FarmJobState.Done, farm.Status(job.Id).State);
+                Assert.True(File.Exists(Path.Combine(job.OutputFolder, "turntable0004.png")));
                 break;
             case "three_point_lighting":
                 Assert.Equal(["Key", "Fill", "Rim"], scene.Lights.Select(l => l.Name));

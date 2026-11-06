@@ -233,6 +233,118 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
                 ["warnings"] = new JsonArray(warnings.Select(w => (JsonNode)JsonValue.Create(w)).ToArray()),
             };
         }, cancel, changes: false);
+    // ───────────────────────────── the render queue and farm ─────────────────────────────
+
+    /// <summary>The farm folder a queue tool works on: the one given (inside the working folder), else the window's queue, else render-queue in the working folder.</summary>
+    private string QueueFolder(string? folder)
+    {
+        try { return folder != null ? Inside(host.Root, folder) : app?.QueueFolder ?? Inside(host.Root, "render-queue"); }
+        catch (ArgumentException e) { throw new McpException(e.Message, e); }
+    }
+
+    /// <summary>A path as an agent sees it: relative to the working folder when inside it.</summary>
+    private string Shown(string path)
+    {
+        string rel = Path.GetRelativePath(host.Root, path);
+        return rel.StartsWith("..", StringComparison.Ordinal) || Path.IsPathRooted(rel) ? path : rel.Replace('\\', '/');
+    }
+
+    [McpServerTool(Name = "queue_render", Destructive = false)]
+    [Description("Batch rendering, in the spirit of classic LightWave's ScreamerNet: sends the scene as it is now to a render queue as a job that render nodes work frame by frame. Nodes are the AVALightWave window's own (Render › Render Queue › Start Local Rendering) and any number of \"AVALightWave --render-node <folder>\" processes, on this machine or others that reach the same folder (a network share works); each claims frames the others haven't. The job is a copy (meshes embedded, its images copied in), so later changes to the scene don't touch it. The frames are PNGs in <folder>/jobs/<job>/out, named <name>0001.png onwards in render order; with movie, the node finishing the last frame joins them with ffmpeg if it has it. Not an undo step: the scene isn't changed. render_queue_status shows how it's going.")]
+    public async Task<string> QueueRender(
+        [Description("The first frame (default: the scene's first).")] int? first = null,
+        [Description("The last frame (default: the scene's last).")] int? last = null,
+        [Description("Render every step-th frame (default: the scene's frame step).")] int? step = null,
+        [Description("Width in pixels, 1 to 8192 (default: the camera's).")] int? width = null,
+        [Description("Height in pixels, 1 to 8192 (default: the camera's).")] int? height = null,
+        [Description("Rays per pixel (antialiasing), 1 to 64 (default 1).")] int samples = 1,
+        [Description("The frames' file name before the number (default \"frame\": frame0001.png…).")] string name = "frame",
+        [Description("The job's name in the queue (default: the scene's file name, or \"Scene\").")] string? job_name = null,
+        [Description("A movie of the frames when they're all done: none (default), mp4, gif or both (needs ffmpeg on the node).")] string movie = "none",
+        [Description("The render farm folder, relative to the working folder, e.g. \"farm\" (made if needed). Default: the open window's render queue; headless, \"render-queue\" in the working folder.")] string? folder = null,
+        CancellationToken cancel = default)
+    {
+        string dir = QueueFolder(folder);
+        try
+        {
+            var (snapshot, settings, sceneFolder) = await host.RunSceneAsync("sent the scene to the render queue", (_, l) =>
+            {
+                var s = l.Scene;
+                var basis = FarmSubmit.From(s);
+                var sub = basis with
+                {
+                    Name = job_name ?? (l.ScenePath != null ? Path.GetFileNameWithoutExtension(l.ScenePath) : null),
+                    First = first ?? basis.First, Last = last ?? basis.Last, Step = step ?? basis.Step,
+                    Width = width ?? basis.Width, Height = height ?? basis.Height, Samples = samples,
+                    Output = name, Movie = movie,
+                };
+                return (FarmFolder.Snapshot(s), sub, l.ScenePath != null ? Path.GetDirectoryName(Path.GetFullPath(l.ScenePath)) : host.Root);
+            }, cancel).ConfigureAwait(false);
+            var farm = new FarmFolder(dir);
+            var sent = await Task.Run(() => farm.Submit(snapshot, settings, sceneFolder), cancel).ConfigureAwait(false);
+            var nodes = await Task.Run(() => farm.Nodes(), cancel).ConfigureAwait(false);
+            return new JsonObject
+            {
+                ["job"] = sent.Job.Id,
+                ["name"] = sent.Job.Name,
+                ["folder"] = Shown(farm.Root),
+                ["frames"] = sent.Job.Frames.Count,
+                ["first"] = sent.Job.First,
+                ["last"] = sent.Job.Last,
+                ["step"] = sent.Job.Step,
+                ["size"] = new JsonArray(sent.Job.Width, sent.Job.Height),
+                ["output_folder"] = Shown(sent.OutputFolder),
+                ["first_file"] = Shown(Path.Combine(sent.OutputFolder, sent.Job.FileName(1))),
+                ["warnings"] = new JsonArray(sent.Warnings.Select(w => (JsonNode)w).ToArray()),
+                ["nodes_working"] = nodes.Count,
+                ["note"] = nodes.Count > 0 ? $"{nodes.Count} render node(s) are watching this folder." :
+                    $"No render node is watching this folder yet: the person starts one with {farm.NodeCommand} (on any machine that reaches it), or Render › Render Queue › Start Local Rendering in the window.",
+            }.ToJsonString();
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or IOException or UnauthorizedAccessException)
+        {
+            throw new McpException(e.Message, e);
+        }
+    }
+
+    [McpServerTool(Name = "render_queue_status", ReadOnly = true, Idempotent = true)]
+    [Description("The render queue's jobs, in the order nodes take them, each with its state (waiting, rendering, done, failed with the reason, cancelled), frames done of the total, the nodes rendering it, its output folder and its movie; and the render nodes heard from in the last two minutes (name, machine, what they're on, frames rendered).")]
+    public async Task<string> RenderQueueStatus(
+        [Description("The render farm folder, relative to the working folder (default: the open window's render queue; headless, \"render-queue\" in the working folder).")] string? folder = null,
+        CancellationToken cancel = default)
+    {
+        string dir = QueueFolder(folder);
+        var farm = new FarmFolder(dir);
+        var (jobs, nodes) = await Task.Run(() => (farm.Scan(), farm.Nodes()), cancel).ConfigureAwait(false);
+        var now = DateTime.UtcNow;
+        return new JsonObject
+        {
+            ["folder"] = Shown(farm.Root),
+            ["jobs"] = new JsonArray(jobs.TakeLast(50).Select(j => (JsonNode)new JsonObject
+            {
+                ["job"] = j.Id,
+                ["name"] = j.Name,
+                ["state"] = j.State.ToString().ToLowerInvariant(),
+                ["done"] = j.Done,
+                ["total"] = j.Total,
+                ["reason"] = j.Reason,
+                ["nodes"] = new JsonArray(j.Nodes.Select(n => (JsonNode)n).ToArray()),
+                ["movie"] = j.Movie,
+                ["output_folder"] = Shown(j.OutputFolder),
+            }).ToArray()),
+            ["nodes"] = new JsonArray(nodes.Select(n => (JsonNode)new JsonObject
+            {
+                ["name"] = n.Name,
+                ["host"] = n.Host,
+                ["state"] = n.State,
+                ["job"] = n.Job,
+                ["frame"] = n.Frame,
+                ["rendered"] = n.Rendered,
+                ["seen_seconds_ago"] = Math.Round(Math.Max(0, (now - n.Seen).TotalSeconds), 1),
+            }).ToArray()),
+            ["node_command"] = farm.NodeCommand,
+        }.ToJsonString();
+    }
 
     // ───────────────────────────── helpers ─────────────────────────────
 

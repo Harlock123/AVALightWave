@@ -31,10 +31,11 @@ public static class LightWaveServer
         - The scene has one undo history, shared with the person: each call that changes it is one step ("Agent: …"), undo_scene and redo_scene step through it, and the person's Ctrl+Z undoes your steps too. new_scene and open_scene clear it. A call that fails changes nothing and leaves no step.
         - Items: add_null (for orbits and rigs: parent things to it with set_item parent and key its heading), add_light (distant, point, spot or area), add_camera, add_bone; set_item changes any item's settings (and locked, which only keeps the person's mouse off it). Paths: set_follow_path makes an item follow a smooth curve through nulls, its place along it the keyable channel path.position; bake_path makes ordinary keys. Bones bend objects: skelegons_to_bones turns an object's skelegons into bones, set_ik gives a chain a goal (inverse kinematics), bake_ik keys it. Displacements (add_displacement) ripple and wave objects; morph weights (morph.<name>) are keyed with set_key.
         - Better-looking renders, all off by default (each costs time; render small first): set_scene ao (ambient occlusion) and environment (a lat-long .hdr/.png/.jpg from the working folder, or builtin:sky / builtin:studio; environment_lighting lights the scene with it); area lights and point/spot lights with a radius for soft shadows; set_item on the camera for depth_of_field (focus_on an item, f_stop 0.1 to 0.5 for visible blur) and motion_blur.
+        - Long renders: queue_render sends the scene as a job to a render queue folder, which render nodes work frame by frame (the window's own, and "AVALightWave --render-node <folder>" processes on this or other machines); render_queue_status shows each job's frames done and the nodes. Use it for many or large frames instead of render_animation.
 
         A good way to make a scene: get_scene; add_object the file; get_scene again for its bounds; light it (the three_point_lighting recipe, or add_light and look_at); place the camera with set_transform and look_at; render_scene_view (camera, then top) to check placement; key the motion at the first and later frames; check an in-between frame with get_scene; render_scene a frame small and look at it; then render_animation (with movie "mp4" or "gif" if ffmpeg is installed) and save_scene (.avascene keeps everything; .lws for LightWave, with objects referenced by their files). export_scene writes glTF.
 
-        The server's prompts are saved recipes for scene work (staging an object, a turntable, a camera fly-by on a path, a sweeping spotlight, three-point lighting): step-by-step plans with the exact tool calls, to follow or adapt.
+        The server's prompts are saved recipes for scene work (staging an object, a turntable, a camera fly-by on a path, a sweeping spotlight, rendering on a farm, three-point lighting): step-by-step plans with the exact tool calls, to follow or adapt.
         """;
 
     /// <summary>What the live window adds to the instructions.</summary>
@@ -121,4 +122,7 @@ public interface ILightWaveApp
 
     /// <summary>Whether the window is on the hub, and whether AVA Modeler is there.</summary>
     (bool OnHub, bool ModelerThere) HubState();
+
+    /// <summary>The window's render queue folder, where queue_render sends jobs when no folder is given (null: none).</summary>
+    string? QueueFolder => null;
 }

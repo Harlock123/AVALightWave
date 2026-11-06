@@ -128,6 +128,37 @@ public static class LightWaveRecipes
         return recipe.Text("Raise edge_angle for a softer pool of light, or give the spot a radius for soft shadows; render_animation renders the sweep.");
     }
 
+    [McpServerPrompt(Name = "render_on_farm", Title = "Render on a render farm")]
+    [Description("Sets up a turntable of an object file and sends it to a render farm folder as a batch job (render nodes, the window's or \"AVALightWave --render-node\" processes on any machine, render it frame by frame), then checks on it.")]
+    public static string RenderOnFarm(
+        [Description("The object file in the working folder (default objects/pawn.lwo).")] string? file = null,
+        [Description("Frames for one full turn, 2 to 600 (default 48).")] string? frames = null,
+        [Description("The farm folder in the working folder (default farm).")] string? folder = null,
+        [Description("Width of the frames in pixels (default 640; the height is three quarters of it).")] string? width = null,
+        [Description("Rays a pixel, 1 to 16 (default 4).")] string? samples = null)
+    {
+        string f = Text(file, "objects/pawn.lwo");
+        int n = Recipes.Whole(frames, 48, "frames", 2, 600);
+        string farm = Text(folder, "farm");
+        int w = Recipes.Whole(width, 640, "width", 16, 4096);
+        int s = Recipes.Whole(samples, 4, "samples", 1, 16);
+        const double d = 4;
+        var recipe = new Recipe($"Turn {f} once round in {n} frames, and send the frames to the render farm folder {farm} as a batch job: render nodes (the window's Render Queue, or \"AVALightWave --render-node {farm}\" on any machine that reaches the folder) share the frames between them.");
+        recipe.Step("Start a new scene (save or discard the old one if it refuses).", "new_scene", new { });
+        recipe.Step($"Frames 1 to {n} at 30 a second, on a dark gradient backdrop.", "set_scene", new { first_frame = 1, last_frame = n, fps = 30, gradient = true, gradient_top = new[] { 40, 48, 64 }, gradient_bottom = new[] { 8, 8, 12 }, frame = 1 });
+        recipe.Step("The object at the origin.", "add_object", new { file = f, name = "Subject" });
+        recipe.Step("Key its heading at 0 on the first frame, linear so it turns steadily.", "set_key", new { item = "Subject", channel = "heading", frame = 1, value = 0, linear = true });
+        recipe.Step("And a frame's turn short of 360° at the last, so the turn loops.", "set_key", new { item = "Subject", channel = "heading", frame = n, value = R(360.0 * (n - 1) / n), linear = true });
+        recipe.Step("The camera in front and a little above.", "set_transform", new { item = "Camera", frame = 1, position = V(0, 0.4 * d, -d), key = false });
+        recipe.Step("Aim it at the object.", "look_at", new { item = "Camera", target = "Subject", frame = 1, key = false });
+        Recipes.LightRig(recipe, "Subject", d);
+        recipe.Step("Check one frame small before sending the job.", "render_scene", new { frame = 1 + n / 4, width = 160, samples = 1 });
+        recipe.Step($"Send every frame to the farm folder as a job: {w}×{w * 3 / 4}, {s} rays a pixel.", "queue_render",
+            new { folder = farm, first = 1, last = n, width = w, height = w * 3 / 4, samples = s, name = "turntable", job_name = "Turntable" });
+        recipe.Step("See the job waiting (or rendering) and which nodes are working the folder.", "render_queue_status", new { folder = farm });
+        return recipe.Text($"If no node is working the folder, ask the person to start one: \"AVALightWave --render-node <working folder>/{farm}\" on each machine (or Render › Render Queue › Start Local Rendering in the window). Call render_queue_status again to follow it; the frames land in the job's out folder.");
+    }
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     private static double R(double v) => Math.Round(v, 4) + 0.0;
