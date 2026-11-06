@@ -64,6 +64,47 @@ public sealed class ViewportPane : Panel
         Children.Add(_outline);
     }
 
+    /// <summary>The OpenGL surface drawing the scene under the view, while the pane uses OpenGL.</summary>
+    public GlSurface? Gl { get; private set; }
+
+    /// <summary>Whether the pane draws its scene with OpenGL now (its surface has a context).</summary>
+    public bool DrawsWithGl => Gl is { Ready: true } && !View.DrawsScene;
+
+    /// <summary>
+    /// Draws the scene with OpenGL under the view (the engine's GlSurface and GlRenderer; the view still draws its frame
+    /// guides and label and takes the mouse), or back in software. <see cref="FallBackIfNoGl"/> goes back to software
+    /// where OpenGL couldn't start.
+    /// </summary>
+    public void UseOpenGl(bool on)
+    {
+        if (on == (Gl != null)) return;
+        if (on)
+        {
+            var gl = new GlSurface { Scene = () => View.CurrentView().Scene, CameraSource = () => View.Camera, IsHitTestVisible = false };
+            View.Redrawn += gl.RequestNextFrameRendering;
+            gl.Failed += _ => Dispatcher.UIThread.Post(() => UseOpenGl(false));
+            Children.Insert(SurfaceIndex, gl);
+            Gl = gl;
+            View.DrawsScene = false;
+        }
+        else
+        {
+            View.Redrawn -= Gl!.RequestNextFrameRendering;
+            Children.Remove(Gl);
+            Gl = null;
+            View.DrawsScene = true;
+        }
+        View.InvalidateVisual();
+    }
+
+    /// <summary>If the pane asked for OpenGL and it never started (no context: a headless or driverless machine), draws in software again. Returns whether it did.</summary>
+    public bool FallBackIfNoGl()
+    {
+        if (Gl == null || Gl.Ready) return false;
+        UseOpenGl(false);
+        return true;
+    }
+
     /// <summary>Outlines the pane (the active one, when there's more than one).</summary>
     internal void Outline(bool on) => _outline.IsVisible = on;
 

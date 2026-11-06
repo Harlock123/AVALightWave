@@ -183,3 +183,33 @@ public class ViewLayoutTests
         again.Close();
     }
 }
+
+/// <summary>The panes' OpenGL path in a headless window, where OpenGL can't start: it falls back to software cleanly.</summary>
+public class OpenGlPaneTests
+{
+    [AvaloniaFact]
+    public void Panes_ask_for_opengl_and_fall_back_to_software_where_it_cant_start()
+    {
+        using var bench = new AVALightWave.Core.Tests.Workbench();
+        var w = Ui.Open();
+        var crate = w.LoadObject(bench.Object("crate.lwo"))!;
+        w.UseOpenGl(true);
+        Ui.Pump();
+        Assert.All(w.Viewports.Panes, p => Assert.NotNull(p.Gl));
+        Assert.False(w.View.DrawsScene);
+        // While waiting for a context the view still picks and takes the mouse.
+        w.View.Mode = AVAModeler.Layout.UI.LayoutViewMode.Top;
+        w.View.Fit();
+        Ui.Pump();
+        var at = w.View.Camera.Project(crate.BaseMesh().Bounds().Center);
+        Assert.Same(crate, w.View.Pick(new Avalonia.Point(at.X, at.Y)));
+        // Headless there's no OpenGL: the check puts software back and says so.
+        w.CheckOpenGl();
+        Assert.All(w.Viewports.Panes, p => Assert.Null(p.Gl));
+        Assert.True(w.View.DrawsScene);
+        Assert.Contains("drawn in software", w.Status);
+        // And off again changes nothing more.
+        w.UseOpenGl(false);
+        Assert.True(w.View.DrawsScene);
+    }
+}

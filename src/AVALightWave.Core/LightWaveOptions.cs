@@ -28,6 +28,9 @@ public sealed class LightWaveOptions
     /// <summary>Auto Key on at the start (classic Layout left it to you; on, every move is a key).</summary>
     public bool AutoKey { get; set; } = true;
 
+    /// <summary>Draw the Layout views with OpenGL (each falls back to software where OpenGL can't start).</summary>
+    public bool OpenGlViews { get; set; } = true;
+
     /// <summary>Minutes between auto-saves of a scene with unsaved changes (0: never).</summary>
     public int AutosaveMinutes { get; set; } = 3;
 

@@ -597,6 +597,9 @@ public sealed class OptionsPanel : LayoutPanel
         var auto = new CheckBox { Content = "Auto Key when starting", IsChecked = options.AutoKey, Foreground = Look.Text };
         auto.IsCheckedChanged += (_, _) => { options.AutoKey = auto.IsChecked == true; options.Save(); };
         Children.Add(auto);
+        var gl = new CheckBox { Content = "Draw the views with OpenGL (software where it can't start)", IsChecked = options.OpenGlViews, Foreground = Look.Text, Name = "OpenGlViews" };
+        gl.IsCheckedChanged += (_, _) => { options.OpenGlViews = gl.IsChecked == true; options.Save(); Window.UseOpenGl(options.OpenGlViews); };
+        Children.Add(gl);
         Children.Add(Label("Auto-save the scene every (minutes, 0 for never; from the next start)"));
         Children.Add(NumberBox(options.AutosaveMinutes, v => { options.AutosaveMinutes = Math.Clamp((int)v, 0, 600); options.Save(); }, "AutosaveMinutes"));
         Children.Add(Note($"Settings are kept in {(prefs.Location != null ? Path.GetDirectoryName(prefs.Location) : "memory only (this window was made for tests)")}."));

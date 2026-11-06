@@ -248,6 +248,7 @@ public sealed class MainWindow : Window
             _autosaveTimer.Tick += async (_, _) => await AutosaveNow();
             if (options.AutosaveMinutes > 0) _autosaveTimer.Start();
             Opened += async (_, _) => await Started(args);
+            Opened += (_, _) => UseOpenGl(options.OpenGlViews);
             Closing += Closing_;
             SyncHub();
             SyncAgents();
@@ -671,6 +672,32 @@ public sealed class MainWindow : Window
                     Item("_About", () => _ = Dialogs.Message(this, "About AVALightWave", About))),
             },
         };
+    }
+
+    /// <summary>
+    /// Draws every pane with OpenGL (or software again). Where OpenGL can't start, the panes go back to software a moment
+    /// later and the status bar says so.
+    /// </summary>
+    internal void UseOpenGl(bool on)
+    {
+        foreach (var p in Viewports.Panes) p.UseOpenGl(on);
+        if (!on) return;
+        var check = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        check.Tick += (_, _) =>
+        {
+            check.Stop();
+            CheckOpenGl();
+        };
+        check.Start();
+    }
+
+    /// <summary>Falls back to software in panes whose OpenGL never started; says which way the views are drawn.</summary>
+    internal void CheckOpenGl()
+    {
+        bool fell = false;
+        foreach (var p in Viewports.Panes) fell |= p.FallBackIfNoGl();
+        if (fell) SetStatus("OpenGL isn't available here, so the views are drawn in software.");
+        else if (Viewports.Panes.Any(p => p.DrawsWithGl)) SetStatus($"The views are drawn with {Viewports.Panes.First(p => p.Gl != null).Gl!.Description ?? "OpenGL"}.");
     }
 
     /// <summary>Fills the Macros menu: Run Macro, the reference, and the macros in the person's folder.</summary>
