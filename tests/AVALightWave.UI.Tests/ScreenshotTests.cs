@@ -3,6 +3,7 @@ using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using AVALightWave.Core.Tests;
 using AVAModeler.Chat.Tests;
+using AVAModeler.Layout;
 using AVAModeler.Layout.UI;
 using AVAModeler.Scene;
 
@@ -151,6 +152,7 @@ public class ScreenshotTests
         var perspective = w.Viewports.Panes[1].View;
         perspective.Camera.Heading = 25;
         perspective.Camera.Pitch = 20;
+        perspective.Camera.Distance /= 3;
         w.Viewports.Activate(w.Viewports.Panes[1]);
         w.Session.Select(w.Session.Scene.Objects.Single(o => o.Name == "Ball"));
         Shot(w, "quad");
@@ -170,5 +172,131 @@ public class ScreenshotTests
         Shot(p, "preview");
         Assert.True(p.Preview!.Complete);
         p.Close();
+    }
+
+    [AvaloniaFact]
+    public void Lens_flares_and_volumetric_light_rendered()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        var s = w.Session;
+        s.SetFrame(14);
+        var scene = s.Scene;
+        scene.AmbientIntensity = 0.05;
+        scene.GradientTop = new AVAModeler.Core.Vec3(0.03, 0.04, 0.07);
+        scene.GradientBottom = new AVAModeler.Core.Vec3(0.01, 0.01, 0.02);
+        var key = (LightItem)scene.Find("Key")!;
+        s.SetVolumetric(key, new VolumetricLight { On = true, Intensity = 1.2, Samples = 48 });
+        s.SetShadows(key, true, new ShadowMapSettings { On = true, Size = 1024, Fuzziness = 3 });
+        // A lamp glowing behind the crate, in the picture: its flare and its glow in the air.
+        var lamp = s.Add(new LightItem("Lamp", LightType.Point) { Color = new AVAModeler.Core.Vec3(0.6, 0.8, 1), Range = 4 });
+        s.SetVector(lamp, 0, new AVAModeler.Core.Vec3(1.7, 1.5, 1.6));
+        s.SetLensFlare(lamp, new LensFlare { On = true, Size = 0.06, Ring = true, Streaks = 8, StreakLength = 0.25 });
+        s.SetVolumetric(lamp, new VolumetricLight { On = true, Intensity = 0.5, Samples = 16, Shadows = false });
+        w.ShowPanel("Lights");
+        s.Select(lamp);
+        w.CurrentPanel!.Refresh();
+        var cam = scene.CurrentCamera!;
+        cam.Width = 640;
+        cam.Height = 480;
+        var r = new RenderWindow(s) { Width = 820, Height = 640 };
+        r.Show(w);
+        Ui.Wait(r.Render(new RenderSettings { Width = 640, Height = 480, SamplesPerPixel = 4 }).ContinueWith(_ => 0, TaskScheduler.Default));
+        Shot(r, "effects");
+        r.Close();
+        Look(w, 25, 20, 2.6);
+        Ui.Pump();
+        // The panel scrolled down to the lamp's shadow type, lens flare and volumetric settings.
+        (w.CurrentPanel!.Parent as ScrollViewer)?.ScrollToEnd();
+        Shot(w, "lights-panel");
+    }
+
+    [AvaloniaFact]
+    public void The_graph_editor_with_spans_and_tcb()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        var s = w.Session;
+        s.SetFrame(16);
+        var ball = s.Scene.Objects.Single(o => o.Name == "Ball");
+        s.Select(ball);
+        w.ShowBottom(BottomTab.GraphEditor);
+        var g = w.Graph.Editor;
+        g.ShowOnly("position.y");
+        g.ToggleShown("scale.y");
+        // The top of the second bounce eased as a Bezier key; the landing a stepped squash.
+        g.Choose([g.Key("position.y", 31)]);
+        g.SetSpan(SpanKind.Bezier);
+        g.Choose([g.Key("position.y", 16), g.Key("position.y", 46)]);
+        g.Set(KeyField.Tension, 0.5);
+        w.ShowPanel("Objects");
+        w.CurrentPanel!.Refresh();
+        Look(w, 20, 15, 3.2);
+        Shot(w, "graph-editor");
+    }
+
+    [AvaloniaFact]
+    public void The_images_panel_and_a_composited_render()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        var s = w.Session;
+        s.SetFrame(14);
+        w.ShowPanel("Images");
+        var images = (ImagesPanel)w.CurrentPanel!;
+        Assert.True(images.Add(bench.File(Path.Combine("images", "sky.png")), false));
+        Assert.True(images.Add(bench.File(Path.Combine("images", "frame.png")), false));
+        Assert.True(images.Add(bench.File(Path.Combine("images", "stripes0001.png")), true));
+        var sky = s.Scene.Images[0].Path;
+        var frame = s.Scene.Images[1].Path;
+        s.SetCompositing(new CompositingSettings
+        {
+            Background = sky, Foreground = frame, Key = ForegroundKey.Color,
+            KeyLow = new AVAModeler.Core.Vec3(0, 0.3, 0), KeyHigh = new AVAModeler.Core.Vec3(0.3, 1, 0.3),
+        });
+        // Without its floor the pawn and the crate stand against the sky; the ball dissolves half away.
+        s.Remove(s.Scene.Objects.Single(o => o.Name == "Floor"));
+        s.SetDissolve(s.Scene.Objects.Single(o => o.Name == "Ball"), 0.5);
+        w.ShowPanel("Images");
+        Ui.Find<ListBox>(w.CurrentPanel!, "ImageList").SelectedIndex = 2;
+        w.View.Mode = LayoutViewMode.Camera;
+        Shot(w, "images");
+        var cam = s.Scene.CurrentCamera!;
+        cam.Width = 640;
+        cam.Height = 480;
+        var r = new RenderWindow(s) { Width = 820, Height = 640 };
+        r.Show(w);
+        Ui.Wait(r.Render(new RenderSettings { Width = 640, Height = 480, SamplesPerPixel = 2 }).ContinueWith(_ => 0, TaskScheduler.Default));
+        Shot(r, "composite");
+        r.Close();
+    }
+
+    [AvaloniaFact]
+    public void The_render_queue()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        var folder = Directory.CreateDirectory(Path.Combine(bench.Path, "studio-farm")).FullName;
+        w.QueueFolder = folder;
+        var q = w.OpenRenderQueue();
+        q.Width = 900;
+        q.Height = 520;
+        Ui.Pump();
+        Ui.Find<TextBox>(q, "QueueWidth").Text = "64";
+        Ui.Find<TextBox>(q, "QueueHeight").Text = "48";
+        Assert.NotNull(Ui.Wait(q.AddCurrentScene()));
+        w.Session.Scene.LastFrame = 30;
+        Assert.NotNull(Ui.Wait(q.AddCurrentScene()));
+        var farm = new FarmFolder(folder);
+        var second = farm.Scan()[1];
+        Ui.Wait(Task.Run(async () =>
+        {
+            // The first job rendered by a node named after a studio machine; the second waits.
+            farm.Cancel(second.Id);
+            await FarmNode.RunAsync(folder, new FarmNodeOptions { Once = true, Name = "studio-pc" }, CancellationToken.None);
+        }).ContinueWith(_ => 0, TaskScheduler.Default));
+        Ui.Wait(q.RefreshAsync().ContinueWith(_ => 0, TaskScheduler.Default));
+        Shot(q, "render-queue");
+        q.Close();
     }
 }

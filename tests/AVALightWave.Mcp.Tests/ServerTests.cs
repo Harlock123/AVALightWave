@@ -27,7 +27,7 @@ public class ServerTests
         Assert.Equal(ToolGroups.Scene.Concat(Own).Order(), tools.Select(t => t.Name).Order());
         Assert.Empty(tools.Select(t => t.Name).Intersect(ToolGroups.Modeling));
         Assert.Equal("AVALightWave", s.Client.ServerInfo!.Name);
-        Assert.Equal("0.1.0", s.Client.ServerInfo.Version);
+        Assert.Equal("0.2.0", s.Client.ServerInfo.Version);
         Assert.StartsWith("AVALightWave is a standalone scene", s.Client.ServerInstructions);
         Assert.DoesNotContain("run_tool", s.Client.ServerInstructions);
         // Descriptions speak of files, not of a Modeler object it doesn't have.

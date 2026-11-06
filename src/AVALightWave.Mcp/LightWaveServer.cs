@@ -61,7 +61,7 @@ public static class LightWaveServer
     {
         Name = Name,
         Title = "AVALightWave",
-        Version = typeof(LightWaveServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.1.0",
+        Version = typeof(LightWaveServer).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion.Split('+')[0] ?? "0.2.0",
         Instructions = Instructions,
         IncludeTool = ToolGroups.Scene.Contains,
         IncludePrompt = EngineRecipes.Contains,

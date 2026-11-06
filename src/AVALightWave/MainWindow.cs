@@ -301,7 +301,7 @@ public sealed class MainWindow : Window
         }
         bar.Children.Add(new TextBlock { Text = "View", Foreground = Look.Text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 4, 0) });
         // The active pane's view type.
-        var mode = new ComboBox { ItemsSource = Enum.GetNames<LayoutViewMode>(), SelectedItem = View.Mode.ToString(), Width = 120, Name = "ViewMode" };
+        var mode = new ComboBox { ItemsSource = Enum.GetNames<LayoutViewMode>(), SelectedItem = View.Mode.ToString(), Width = 136, Name = "ViewMode" };
         mode.SelectionChanged += (_, _) => { if (Enum.TryParse<LayoutViewMode>(mode.SelectedItem as string, out var m)) View.Mode = m; };
         Viewports.PaneViewChanged += pane => { if (pane == Viewports.Active) mode.SelectedItem = View.Mode.ToString(); };
         Viewports.ActiveChanged += () => mode.SelectedItem = View.Mode.ToString();
@@ -749,7 +749,7 @@ public sealed class MainWindow : Window
     }
 
     public const string About = """
-        AVALightWave 0.1.0
+        AVALightWave 0.2.0
 
         A re-imagining of classic LightWave Layout (versions 4 and 5), the scene, animation and render program that
         shipped beside LightWave Modeler, built on the engine of AVA Modeler. Inspired by the original; not affiliated
