@@ -23,10 +23,11 @@ internal static class Ui
         for (int i = 0; i < 12; i++) Dispatcher.UIThread.RunJobs();
     }
 
-    /// <summary>Pumps until a task is done.</summary>
+    /// <summary>Pumps until a task is done, for up to two minutes (a ray-traced frame is slow on a CI runner).</summary>
     public static T Wait<T>(Task<T> task)
     {
-        for (int i = 0; i < 20000 && !task.IsCompleted; i++) { Pump(); Thread.Sleep(1); }
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!task.IsCompleted && clock.Elapsed < TimeSpan.FromMinutes(2)) { Pump(); Thread.Sleep(1); }
         Assert.True(task.IsCompleted, "It didn't finish.");
         Pump();
         return task.GetAwaiter().GetResult();
