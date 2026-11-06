@@ -49,6 +49,11 @@ internal sealed class WindowAgents(SceneDocument document, Func<ObjectItem, Task
 
     public (bool OnHub, bool ModelerThere) HubState() => hubState();
 
+    /// <summary>The window's render queue folder now (queue_render's default).</summary>
+    public Func<string>? Queue { get; set; }
+
+    public string? QueueFolder => Queue?.Invoke();
+
     /// <summary>The live host the AI Chat's server runs on; its status lines say Claude is working.</summary>
     public LiveHost ChatHost(string root) => new(this, new ChatReports(this), root) { BusyWait = BusyWait };
 

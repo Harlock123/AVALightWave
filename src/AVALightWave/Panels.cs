@@ -469,6 +469,7 @@ public sealed class RenderPanel : LayoutPanel
         Children.Add(Buttons(
             Look.MakeButton("Render Frame", Window.Render, "Ray-trace this frame (F9)"),
             Look.MakeButton("Render Animation…", () => Window.RenderAnimation(), "Render the frames to PNGs, and an MP4 or GIF with ffmpeg (F10)"),
+            Look.MakeButton("Render Queue…", () => Window.OpenRenderQueue(), "Batch rendering: send the scene to the render queue or a render farm folder that render nodes work"),
             Look.MakeButton("Export glTF…", () => _ = Window.ExportGltf(), "The scene as .glb or .gltf for other programs")));
     }
 }

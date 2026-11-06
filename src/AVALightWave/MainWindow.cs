@@ -93,6 +93,25 @@ public sealed class MainWindow : Window
 
     /// <summary>The scene's auto-save and crash recovery (none in a window made for tests unless a test gives one).</summary>
     internal SceneAutosave? Autosave { get; set; }
+    /// <summary>The local render queue's folder (in the app-data folder; a test window's is a temporary one of its own).</summary>
+    internal string LocalQueueFolder { get; }
+
+    /// <summary>The render queue's folder now: the local queue, or a render farm folder chosen in the Render Queue window.</summary>
+    internal string QueueFolder
+    {
+        get => _queueFolder;
+        set => _queueFolder = Path.GetFullPath(value);
+    }
+
+    private string _queueFolder;
+    private RenderQueue? _queue;
+    private RenderQueueWindow? _queueWindow;
+
+    /// <summary>How the local render node works (tests give small timings; null: the defaults).</summary>
+    internal FarmNodeOptions? LocalNodeOptions { get; set; }
+
+    /// <summary>Whether this window is rendering the queue's frames itself.</summary>
+    internal bool LocalRendering => _queue?.Running == true;
 
     /// <summary>Asks where to open or save a file (tests give their own: title, suggested name, save?).</summary>
     internal Func<string, string?, bool, Task<string?>>? PickFile { get; set; }
@@ -131,6 +150,10 @@ public sealed class MainWindow : Window
             Hub.Launcher = new AppLauncher(HubProtocol.Modeler) { Start = _ => false };
         }
         Agents = new WindowAgents(Document, EditInModeler, () => (Hub.Running, Hub.Running && Hub.ModelerThere()), SetStatus);
+        // The render queue: the person's own in the app-data folder; a test window's somewhere of its own (made only if used).
+        LocalQueueFolder = forTests ? Path.Combine(Path.GetTempPath(), "avalightwave-queue-" + Guid.NewGuid().ToString("N")) : FarmFolder.DefaultQueue;
+        _queueFolder = LocalQueueFolder;
+        Agents.Queue = () => QueueFolder;
 
         // The AI Chat: the same panel as AVA Modeler's, on AVALightWave's server, prompt and words. Tests never see a key.
         var keys = forTests ? new ApiKeyStore(null, null) : ApiKeyStore.ForApp(LightWaveOptions.Folder);
@@ -217,6 +240,7 @@ public sealed class MainWindow : Window
             _player.Stop();
             _autosaveTimer.Stop();
             _preview?.Close();
+            _ = StopLocalRendering();
             Chat.Stop();
             Chat.SaveHistory();
             _ = _chatTools.DisposeAsync().AsTask();
@@ -620,7 +644,7 @@ public sealed class MainWindow : Window
                 }).ToArray()),
                 Group("_Panels", _panels.Keys.Select(n => (object)Item("_" + n, () => ShowPanel(n))).ToArray()),
                 Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10"), "-",
-                    Item("Make _Preview…", () => MakePreview(), "Shift+P")),
+                    Item("Make _Preview…", () => MakePreview(), "Shift+P"), Item("Render _Queue…", () => OpenRenderQueue())),
                 Group("_Hub", Item("_Edit in Modeler", () => { if (Session.Selected is ObjectItem o) _ = EditInModeler(o); else SetStatus("Choose an object to edit in AVA Modeler."); }, "Ctrl+E"),
                     Item("_Link with AVA Modeler…", () => ShowPanel("Options"))),
                 Group("_AI", Item("_Chat with Claude…", ToggleChat, "F4"), Item("Allow AI _Agents…", () => ShowPanel("Options"))),
@@ -914,6 +938,38 @@ public sealed class MainWindow : Window
         w.Closed += (_, _) => { if (_animation == w) _animation = null; };
         w.Show(this);
         return w;
+    }
+
+    /// <summary>Render › Render Queue: the queue's (or farm's) jobs, nodes and local rendering.</summary>
+    public RenderQueueWindow OpenRenderQueue()
+    {
+        _player.Stop();
+        if (_queueWindow is { IsVisible: true })
+        {
+            _queueWindow.Activate();
+            return _queueWindow;
+        }
+        var w = _queueWindow = new RenderQueueWindow(this);
+        w.Closed += (_, _) => { if (_queueWindow == w) _queueWindow = null; };
+        w.Show(this);
+        return w;
+    }
+
+    /// <summary>Starts a render node in this process on the queue's folder (it keeps going when the Render Queue window closes).</summary>
+    internal void StartLocalRendering()
+    {
+        if (LocalRendering) return;
+        var queue = _queue = new RenderQueue(QueueFolder);
+        queue.Said += line => Dispatcher.UIThread.Post(() => SetStatus(line));
+        queue.Start(LocalNodeOptions);
+    }
+
+    /// <summary>Stops this process's render node (the frame under way is given back to the queue).</summary>
+    internal async Task StopLocalRendering()
+    {
+        var queue = _queue;
+        _queue = null;
+        if (queue != null) await queue.StopAsync();
     }
 
     // ───────────────────────────── files ─────────────────────────────
