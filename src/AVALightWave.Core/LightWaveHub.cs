@@ -77,14 +77,83 @@ public sealed class LightWaveHub(SceneDocument document, Func<Func<JsonObject>, 
         HubMessage.Hello => Task.FromResult(HubProtocol.Ok(new JsonObject { ["app"] = HubProtocol.LightWave, ["pid"] = Environment.ProcessId })),
         HubMessage.ObjectSaved => onUi(() => Saved(message)),
         HubMessage.AddObject => onUi(() => Add(message)),
+        HubMessage.ObjectChanged => Changed(message),
         _ => Task.FromResult(HubProtocol.Error($"AVALightWave doesn't take \"{message.Type}\" messages.")),
     };
+
+    /// <summary>
+    /// Live sync: answered at once (AVA Modeler waits only a moment), the copy then read and put in place on the UI
+    /// thread, merged into one undo step with the updates before it.
+    /// </summary>
+    private Task<JsonObject> Changed(HubMessage message)
+    {
+        if (message.Path is not { } path || !File.Exists(path)) return Task.FromResult(HubProtocol.Error($"There's no object file {message.Path}."));
+        if (message.Link is not { Length: > 0 } link) return Task.FromResult(HubProtocol.Error("A live update needs its link."));
+        var work = onUi(() =>
+        {
+            try
+            {
+                var updated = document.SyncFromFile(path, link);
+                if (updated.Count > 0) Synced(updated[0].Name, live: true);
+                return HubProtocol.Ok(new JsonObject { ["updated"] = updated.Count });
+            }
+            catch (Exception e) when (e is IOException or InvalidDataException or FormatException or NotSupportedException or UnauthorizedAccessException)
+            {
+                Said?.Invoke($"AVA Modeler's live copy couldn't be read: {e.Message}");
+                return HubProtocol.Error(e.Message);
+            }
+        });
+        LastLive = work;
+        return Task.FromResult(HubProtocol.Ok(new JsonObject { ["queued"] = true }));
+    }
+
+    /// <summary>The last live update's work on the UI thread (for tests to wait on).</summary>
+    internal Task<JsonObject>? LastLive { get; private set; }
+
+    // ───────────────────────────── status ─────────────────────────────
+
+    /// <summary>What the hub light shows: on or off, whether AVA Modeler is there, the object last linked, and the last update.</summary>
+    public sealed record HubStatus(bool OnHub, bool ModelerThere, string? Linked, DateTime? LastSync, bool LastWasLive)
+    {
+        public string Text => !OnHub ? "Hub: off"
+            : !ModelerThere ? "Hub: on (AVA Modeler not running)"
+            : "Hub: AVA Modeler connected" + (Linked != null ? $" · linked {Linked}" : "") + (LastSync is { } t ? $" · {(LastWasLive ? "synced" : "saved")} {t:HH:mm:ss}" : "");
+    }
+
+    private bool _modelerThere;
+    private string? _linked;
+    private DateTime? _lastSync;
+    private bool _lastWasLive;
+
+    public HubStatus Status => new(Running, Running && _modelerThere, _linked, _lastSync, _lastWasLive);
+
+    /// <summary>Raised (on the UI thread, or the thread that checked) when <see cref="Status"/> changes.</summary>
+    public event Action? StatusChanged;
+
+    private void Synced(string name, bool live)
+    {
+        (_modelerThere, _linked, _lastSync, _lastWasLive) = (true, name, DateTime.Now, live);
+        StatusChanged?.Invoke();
+    }
+
+    /// <summary>Looks (off the UI thread, briefly) whether AVA Modeler is on the hub, and says if that changed.</summary>
+    public async Task CheckPresenceAsync()
+    {
+        bool there = Running && await Task.Run(() => HubClient.Answers(ModelerPipe)).ConfigureAwait(true);
+        if (there == _modelerThere) return;
+        _modelerThere = there;
+        StatusChanged?.Invoke();
+    }
 
     private JsonObject Saved(HubMessage message)
     {
         if (message.Path is not { } path || !File.Exists(path)) return HubProtocol.Error($"There's no object file {message.Path}.");
         var updated = document.UpdateFromFile(path, message.Link);
-        if (updated.Count > 0) Said?.Invoke($"Updated {string.Join(", ", updated.Select(o => o.Name))} from AVA Modeler.");
+        if (updated.Count > 0)
+        {
+            Said?.Invoke($"Updated {string.Join(", ", updated.Select(o => o.Name))} from AVA Modeler.");
+            Synced(updated[0].Name, live: false);
+        }
         return HubProtocol.Ok(new JsonObject { ["updated"] = updated.Count });
     }
 
@@ -95,6 +164,7 @@ public sealed class LightWaveHub(SceneDocument document, Func<Func<JsonObject>, 
         {
             var updated = document.UpdateFromFile(path, link);
             Said?.Invoke($"Updated {string.Join(", ", updated.Select(o => o.Name))} from AVA Modeler.");
+            Synced(updated[0].Name, live: false);
             return HubProtocol.Ok(new JsonObject { ["updated"] = true, ["item"] = updated[0].Name });
         }
         var item = document.LoadObject(path);
@@ -105,6 +175,7 @@ public sealed class LightWaveHub(SceneDocument document, Func<Func<JsonObject>, 
         }
         if (message.Link is { } l) document.Link(item, l);
         Said?.Invoke($"AVA Modeler sent {item.Name}: it's in the scene.");
+        Synced(item.Name, live: false);
         return HubProtocol.Ok(new JsonObject { ["updated"] = false, ["item"] = item.Name });
     }
 
@@ -131,6 +202,7 @@ public sealed class LightWaveHub(SceneDocument document, Func<Func<JsonObject>, 
     public async Task<string> EditInModeler(ObjectItem item)
     {
         var link = document.LinkOf(item);
+        _linked = item.Name;
         string? path;
         try
         {

@@ -252,6 +252,35 @@ public sealed class SceneDocument
         _links.Where(kv => kv.Value == link && kv.Key.Scene == Scene).Select(kv => kv.Key).ToList();
 
     /// <summary>
+    /// Live sync: AVA Modeler's unsaved copy of a linked object (written to its hub folder as you model) is read and put
+    /// in place of every object tied to <paramref name="link"/>, keeping their motion and their own files (the object is
+    /// marked as having unsaved changes, as it has in AVA Modeler). A burst of these is one undo step: each merges into
+    /// the one before while nothing else happens in between. Returns the objects updated (none if nothing is linked).
+    /// </summary>
+    public IReadOnlyList<ObjectItem> SyncFromFile(string path, string link)
+    {
+        var targets = Linked(link).ToList();
+        if (targets.Count == 0) return [];
+        var doc = ObjectFiles.Load(System.IO.Path.GetFullPath(path));
+        var updated = new List<ObjectItem>();
+        Session.Edit($"Live update {targets[0].Name} from AVA Modeler", () =>
+        {
+            foreach (var o in targets)
+            {
+                var own = o.SourcePath ?? o.Document?.FilePath;
+                o.Document = doc;
+                if (o.Layer is int l && l >= doc.Layers.Count) o.Layer = null;
+                o.SourcePath = own;
+                updated.Add(o);
+            }
+            doc.FilePath = targets[0].SourcePath;
+            doc.Modified = true;
+            Scene.Notify();
+        }, merge: true);
+        return updated;
+    }
+
+    /// <summary>
     /// An object AVA Modeler saved (or synced): its file is read again and put in place, as one undo step, for every
     /// object tied to <paramref name="link"/>, or else every object that came from that file. Returns the objects updated.
     /// </summary>

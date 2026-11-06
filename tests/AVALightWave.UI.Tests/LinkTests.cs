@@ -1,3 +1,4 @@
+using Avalonia.Controls;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using Avalonia.Headless.XUnit;
@@ -61,6 +62,37 @@ public class LinkTests
         reply = Ui.Wait(HubClient.SendAsync(w.Hub.Pipe, new HubMessage(HubMessage.AddObject, HubProtocol.Modeler, bench.Object("spaceship.lwo"), "ship-link", "Ship"), TimeSpan.FromSeconds(10)));
         Assert.Equal("Ship", (string?)reply["item"]);
         Assert.Contains(w.Session.Scene.Objects, o => o.Name == "Ship");
+        await w.Hub.StopAsync();
+    }
+
+    [AvaloniaFact]
+    public async Task Live_sync_from_modeler_updates_the_view_and_the_hub_light()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        w.Hub.Pipe = Pipe();
+        w.Hub.ModelerPipe = Pipe();
+        w.Preferences.HubEnabled = true;
+        w.SyncHub();
+        var hubText = Ui.Find<TextBlock>(w, "HubStatus");
+        Assert.Equal("Hub: on (AVA Modeler not running)", w.Hub.Status.Text);
+        await using var modeler = new HubListener(w.Hub.ModelerPipe, _ => Task.FromResult(HubProtocol.Ok()));
+        modeler.Start();
+        Ui.Wait(w.Hub.CheckPresenceAsync());
+        Ui.Until(() => hubText.Text == "Hub: AVA Modeler connected", "The hub light didn't see AVA Modeler.");
+        var pawn = w.LoadObject(bench.Object("pawn.lwo"))!;
+        var link = w.Document.LinkOf(pawn);
+        for (int i = 0; i < 2; i++)
+        {
+            var reply = Ui.Wait(HubClient.SendAsync(w.Hub.Pipe, new HubMessage(HubMessage.ObjectChanged, HubProtocol.Modeler, bench.Object("crate.lwo"), link, "pawn"), TimeSpan.FromSeconds(10)));
+            Assert.True((bool?)reply["ok"]);
+            Ui.Wait(w.Hub.LastLive!);
+        }
+        Assert.Equal(8, pawn.BaseMesh().Points.Count);
+        Ui.Until(() => hubText.Text?.Contains("linked pawn · synced") == true, "The hub light didn't show the sync.");
+        Assert.Equal("Live update pawn from AVA Modeler", w.Session.History.UndoLabel);
+        Ui.Key(w, Key.Z, RawInputModifiers.Control);
+        Assert.Equal(482, pawn.BaseMesh().Points.Count);
         await w.Hub.StopAsync();
     }
 

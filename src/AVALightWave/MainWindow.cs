@@ -52,6 +52,7 @@ public sealed class MainWindow : Window
     private readonly MenuItem _undo = new(), _redo = new(), _recentScenes = new() { Header = "Recent _Scenes" }, _recentObjects = new() { Header = "Recent O_bjects" };
     private readonly DispatcherTimer _player = new();
     private readonly DispatcherTimer _autosaveTimer = new();
+    private readonly DispatcherTimer _hubTimer = new();
     private readonly LazyToolBridge _chatTools;
     private EditMode _mode = EditMode.Objects;
     private BottomTab _bottom = BottomTab.GraphEditor;
@@ -142,6 +143,8 @@ public sealed class MainWindow : Window
 
         Hub = new LightWaveHub(Document, work => Dispatcher.UIThread.InvokeAsync(work).GetTask()) { ModelerSetting = options.ModelerPath };
         Hub.Said += SetStatus;
+        Hub.StatusChanged += () => Dispatcher.UIThread.Post(() => _hubLight.Text = Hub.Status.Text);
+        _hubLight.Name = "HubStatus";
         if (!forTests) Hub.SettingsFolder = LightWaveOptions.Folder;
         else
         {
@@ -227,6 +230,10 @@ public sealed class MainWindow : Window
         if (!forTests)
         {
             Autosave = new SceneAutosave(SceneAutosave.DefaultFolder);
+            // The hub light: whether AVA Modeler is there, looked at every few seconds (a moment's connection, off the UI thread).
+            _hubTimer.Interval = TimeSpan.FromSeconds(3);
+            _hubTimer.Tick += async (_, _) => await Hub.CheckPresenceAsync();
+            _hubTimer.Start();
             _autosaveTimer.Interval = TimeSpan.FromMinutes(Math.Max(1, options.AutosaveMinutes));
             _autosaveTimer.Tick += async (_, _) => await AutosaveNow();
             if (options.AutosaveMinutes > 0) _autosaveTimer.Start();
@@ -239,6 +246,7 @@ public sealed class MainWindow : Window
         {
             _player.Stop();
             _autosaveTimer.Stop();
+            _hubTimer.Stop();
             _preview?.Close();
             _ = StopLocalRendering();
             Chat.Stop();
@@ -541,7 +549,7 @@ public sealed class MainWindow : Window
         if (Session.Selected is { } chosen && !_mode.Includes(chosen)) SetModeOnly(EditModes.Of(chosen));
         else if (s.Items.Count != _itemsShown) RefreshItems();
         else SelectInChooser();
-        _hubLight.Text = Hub.Running ? "Hub: on" : "Hub: off";
+        _hubLight.Text = Hub.Status.Text;
         Marks.InvalidateVisual();
         Viewports.InvalidateViews();
         CurrentPanel?.Refresh();
@@ -1191,7 +1199,7 @@ public sealed class MainWindow : Window
             if (Hub.Start() is { } problem) SetStatus($"Not on the hub: {problem}");
         }
         else if (!Preferences.HubEnabled && Hub.Running) _ = Hub.StopAsync();
-        _hubLight.Text = Hub.Running ? "Hub: on" : "Hub: off";
+        _hubLight.Text = Hub.Status.Text;
     }
 
     /// <summary>Opens or closes the door to AI agents to match Options.</summary>

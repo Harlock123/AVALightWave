@@ -183,4 +183,59 @@ public sealed class HubTests : IDisposable
         Assert.False(_hub.Running);
         Assert.False(HubClient.Answers(_hub.Pipe));
     }
+
+    [Fact]
+    public async Task Live_updates_from_modeler_merge_into_one_undo_step_and_keep_the_objects_file()
+    {
+        _hub.Start();
+        var pawn = _doc.LoadObject(_w.Object("pawn.lwo"));
+        pawn.SetPosition(10, new Vec3(1, 0, 0));
+        var link = _doc.LinkOf(pawn);
+        int steps = _doc.Session.History.Count;
+        // Three live copies in a row, as AVA Modeler sends them while someone models.
+        for (int i = 1; i <= 3; i++)
+        {
+            var copy = _w.Triangle($"live{i}.lwo", new Rgb((byte)(i * 60), 0, 0));
+            var reply = await FromModeler(new HubMessage(HubMessage.ObjectChanged, HubProtocol.Modeler, copy, link, "pawn"));
+            Assert.True((bool?)reply["ok"]);
+            await _hub.LastLive!;
+        }
+        Assert.Equal(3, pawn.BaseMesh().Points.Count);
+        Assert.Equal(new Rgb(180, 0, 0), pawn.Surfaces[0].Color);
+        Assert.Equal(_w.Object("pawn.lwo"), pawn.SourcePath);
+        Assert.True(pawn.Document!.Modified);
+        Assert.Equal(1, pawn.PositionAt(10).X, 9);
+        Assert.Equal(steps + 1, _doc.Session.History.Count);
+        Assert.Equal("Live update pawn from AVA Modeler", _doc.Session.History.UndoLabel);
+        Assert.Contains("linked pawn", _hub.Status.Text);
+        Assert.Contains("synced", _hub.Status.Text);
+        _doc.Session.Undo();
+        Assert.Equal(482, pawn.BaseMesh().Points.Count);
+        // Without a link it's refused; with a link nothing uses, nothing changes.
+        var e = await Assert.ThrowsAsync<InvalidOperationException>(() => FromModeler(new HubMessage(HubMessage.ObjectChanged, HubProtocol.Modeler, _w.Triangle("x.lwo", Rgb.White), null, "x")));
+        Assert.Contains("needs its link", e.Message);
+        await FromModeler(new HubMessage(HubMessage.ObjectChanged, HubProtocol.Modeler, _w.File("x.lwo"), "nobody", "x"));
+        await _hub.LastLive!;
+        Assert.Equal(482, pawn.BaseMesh().Points.Count);
+    }
+
+    [Fact]
+    public async Task The_status_follows_modeler_coming_and_going()
+    {
+        Assert.Equal("Hub: off", _hub.Status.Text);
+        _hub.Start();
+        await _hub.CheckPresenceAsync();
+        Assert.Equal("Hub: on (AVA Modeler not running)", _hub.Status.Text);
+        int changes = 0;
+        _hub.StatusChanged += () => changes++;
+        var got = new List<HubMessage>();
+        await using (FakeModeler(got))
+        {
+            await _hub.CheckPresenceAsync();
+            Assert.Equal("Hub: AVA Modeler connected", _hub.Status.Text);
+        }
+        await _hub.CheckPresenceAsync();
+        Assert.Equal("Hub: on (AVA Modeler not running)", _hub.Status.Text);
+        Assert.Equal(2, changes);
+    }
 }
