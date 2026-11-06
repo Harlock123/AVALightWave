@@ -3,6 +3,7 @@ using Avalonia.LogicalTree;
 using AVALightWave.Core.Tests;
 using AVAModeler.Core;
 using AVAModeler.Scene;
+using AVAModeler.Layout.UI;
 
 namespace AVALightWave.UI.Tests;
 
@@ -126,5 +127,37 @@ public class WorkflowTests
         Assert.Equal(1, m.Weight.Evaluate(20), 9);
         Assert.Equal("Set pawn's pawn-squash", w.Session.History.UndoLabel);
         Assert.True(pawn.DeformedMesh(20).Bounds().Max.Y < pawn.BaseMesh().Bounds().Max.Y * 0.6);
+    }
+
+    [AvaloniaFact]
+    public void Skelegons_in_a_loaded_object_become_bones_in_one_step()
+    {
+        using var bench = new Workbench();
+        // An arm: a box with a chain of two skelegons (2-point polygons on a "Skelegon" surface) up its middle.
+        var doc = new Document();
+        var m = doc.Current.Mesh;
+        m.Points.AddRange([new Vec3(-0.1, 0, -0.1), new Vec3(0.1, 0, -0.1), new Vec3(0.1, 2, -0.1), new Vec3(-0.1, 2, -0.1)]);
+        m.Polygons.Add(new Polygon([0, 1, 2, 3], 0));
+        doc.Surfaces.Add(new Surface("Skelegon"));
+        m.Points.AddRange([new Vec3(0, 0, 0), new Vec3(0, 1, 0), new Vec3(0, 2, 0)]);
+        m.Polygons.Add(new Polygon([4, 5], 1));
+        m.Polygons.Add(new Polygon([5, 6], 1));
+        m.Touch();
+        var path = bench.File("arm.lwo");
+        AVAModeler.Formats.ObjectFiles.Save(doc, path);
+
+        var w = Ui.Open();
+        var arm = w.LoadObject(path)!;
+        int steps = w.Session.History.Count;
+        var bones = w.SkelegonsToBones(arm);
+        Assert.Equal(2, bones.Count);
+        Assert.Same(bones[0], bones[1].Parent);
+        Assert.Equal(steps + 1, w.Session.History.Count);
+        Assert.Equal(EditMode.Bones, w.Mode);
+        Assert.Contains("Made 2 bones", w.Status);
+        w.Undo();
+        Assert.Empty(arm.Bones);
+        w.Session.Select(null);
+        Assert.Empty(w.SkelegonsToBones(null));
     }
 }

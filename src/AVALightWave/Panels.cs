@@ -206,13 +206,7 @@ public sealed class ItemsPanel : LayoutPanel
                         });
                         s.Select(bone);
                     }, "Add a bone to the chosen object (a child of the chosen bone)"),
-                    Look.MakeButton("Skelegons → Bones", () =>
-                    {
-                        var owner = Owner();
-                        if (owner == null) { Window.SetStatus("Choose an object to make bones from its skelegons."); return; }
-                        var made = s.Edit("Skelegons → Bones", () => Skelegons.CreateBones(s.Scene, owner));
-                        Window.SetStatus(made.Count > 0 ? $"Made {made.Count} bones from {owner.Name}'s skelegons." : $"{owner.Name} has no skelegons (2-point polygons on a \"Skelegon…\" surface).");
-                    }, "Make bones from the object's skelegons"));
+                    Look.MakeButton("Skelegons → Bones", () => Window.SkelegonsToBones(Owner()), "Make bones from the object's skelegons, in one step"));
             case EditMode.Lights:
                 return Buttons(
                     Look.MakeButton("Distant", () => s.Add(new LightItem("Distant Light")), "Add a distant light (like the sun)"),

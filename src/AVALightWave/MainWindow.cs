@@ -556,6 +556,7 @@ public sealed class MainWindow : Window
                     Item("Add _Area Light", () => Session.Add(new LightItem("Area Light", LightType.Area))),
                     Item("Add _Camera", () => Session.Add(new CameraItem("Camera"))), "-",
                     Item("C_lone Item…", () => OpenClone()),
+                    Item("S_kelegons → Bones", () => SkelegonsToBones((Session.Selected as Bone)?.Owner ?? Session.Selected as ObjectItem ?? CurrentObject)),
                     Item("_Remove Item", () => { if (Session.Selected is { } i) Session.Remove(i); })),
                 Group("_View", views.Select((v, n) => (object)Item($"_{n + 1} {v}", () => View.Mode = v)).Concat(new object[]
                 {
@@ -731,6 +732,20 @@ public sealed class MainWindow : Window
         if (_forTests) w.Show(this);
         else _ = Dialogs.ShowModal(w, this);
         return w;
+    }
+
+    /// <summary>Skelegons → Bones for an object, in one step (one undo step): a bone for every skelegon in its file.</summary>
+    public IReadOnlyList<Bone> SkelegonsToBones(ObjectItem? owner)
+    {
+        if (owner == null) { SetStatus("Choose an object to make bones from its skelegons."); return []; }
+        var made = Session.Edit("Skelegons → Bones", () => Skelegons.CreateBones(Session.Scene, owner));
+        if (made.Count > 0)
+        {
+            Mode = EditMode.Bones;
+            Session.Select(made[0]);
+        }
+        SetStatus(made.Count > 0 ? $"Made {made.Count} bones from {owner.Name}'s skelegons." : $"{owner.Name} has no skelegons (2-point polygons on a \"Skelegon…\" surface).");
+        return made;
     }
 
     public void Render()
