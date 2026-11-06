@@ -16,8 +16,14 @@ public sealed class LightWaveOptions
     /// <summary>Object files loaded lately, newest first.</summary>
     public List<string> RecentObjects { get; set; } = [];
 
-    /// <summary>The view the window starts with (Camera, Perspective, Top, Front, Side, Light).</summary>
+    /// <summary>The view the Single layout shows (Camera, Perspective, Top, Front, Side, Light).</summary>
     public string ViewMode { get; set; } = "Perspective";
+
+    /// <summary>How the middle is split into views (Single, SideBySide, Stacked, Quad: View › Layout).</summary>
+    public string ViewLayout { get; set; } = nameof(ViewportLayoutKind.Single);
+
+    /// <summary>The views each multi-pane layout's panes show, by layout name (the single view is <see cref="ViewMode"/>).</summary>
+    public Dictionary<string, List<string>> LayoutViews { get; set; } = [];
 
     /// <summary>Auto Key on at the start (classic Layout left it to you; on, every move is a key).</summary>
     public bool AutoKey { get; set; } = true;
