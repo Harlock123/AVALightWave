@@ -59,7 +59,11 @@ public sealed class MainWindow : Window
 
     public SceneDocument Document { get; }
     public LayoutSession Session => Document.Session;
-    public SceneView View { get; }
+    /// <summary>The active pane's view (the one the view keys, the toolbar's view list and the View menu work on).</summary>
+    public SceneView View => Viewports.Active.View;
+
+    /// <summary>The view layout: one, two or four panes, each a view of its own type.</summary>
+    public ViewportLayout Viewports { get; }
     public GraphEditor Graph { get; }
     public DopeSheetPanel DopeSheet { get; }
     public SceneEditor SceneEditor { get; }
@@ -103,8 +107,15 @@ public sealed class MainWindow : Window
         Options = options;
         Document = new SceneDocument();
         Session.AutoKey = options.AutoKey;
-        View = new SceneView(Session) { CanPick = i => _mode.Includes(i) };
-        if (Enum.TryParse<LayoutViewMode>(options.ViewMode, out var startView)) View.Mode = startView;
+        Viewports = new ViewportLayout(Session);
+        Viewports.ForEachView(v => v.CanPick = i => _mode.Includes(i));
+        ArrangeViews(ViewportLayouts.LayoutOf(options));
+        Viewports.PaneViewChanged += pane =>
+        {
+            if (_arranging) return;
+            ViewportLayouts.Remember(Options, Viewports.Kind, pane.Index, pane.View.Mode.ToString());
+            Options.Save();
+        };
         Graph = new GraphEditor(Session);
         DopeSheet = new DopeSheetPanel(Session);
         SceneEditor = new SceneEditor(Document);
@@ -160,7 +171,7 @@ public sealed class MainWindow : Window
 
         Session.Changed += Refresh;
         Session.History.Changed += UpdateUndoItems;
-        Session.SceneReplaced += () => { View.Fit(); Mode = _mode; };
+        Session.SceneReplaced += () => { Viewports.FitAll(); Mode = _mode; };
         Session.ChangedElsewhere += () =>
         {
             RefreshItems();
@@ -183,7 +194,7 @@ public sealed class MainWindow : Window
             var s = Session.Scene;
             Session.SetFrame(Session.Frame + 1 > s.LastFrame ? s.FirstFrame : Session.Frame + 1);
         };
-        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(View.Fit, DispatcherPriority.Background);
+        AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(Viewports.FitAll, DispatcherPriority.Background);
         Mode = EditMode.Objects;
         DragMode = ItemDrag.Move;
         RefreshRecent();
@@ -205,6 +216,7 @@ public sealed class MainWindow : Window
         {
             _player.Stop();
             _autosaveTimer.Stop();
+            _preview?.Close();
             Chat.Stop();
             Chat.SaveHistory();
             _ = _chatTools.DisposeAsync().AsTask();
@@ -231,7 +243,7 @@ public sealed class MainWindow : Window
 
         DockPanel.SetDock(_panelHost, Dock.Right);
         _body.Children.Add(_panelHost);
-        _body.Children.Add(View);
+        _body.Children.Add(Viewports);
         return _body;
     }
 
@@ -245,14 +257,21 @@ public sealed class MainWindow : Window
             bar.Children.Add(b);
         }
         bar.Children.Add(new TextBlock { Text = "View", Foreground = Look.Text, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(14, 0, 4, 0) });
+        // The active pane's view type.
         var mode = new ComboBox { ItemsSource = Enum.GetNames<LayoutViewMode>(), SelectedItem = View.Mode.ToString(), Width = 120, Name = "ViewMode" };
         mode.SelectionChanged += (_, _) => { if (Enum.TryParse<LayoutViewMode>(mode.SelectedItem as string, out var m)) View.Mode = m; };
-        View.ModeChanged += () => mode.SelectedItem = View.Mode.ToString();
+        Viewports.PaneViewChanged += pane => { if (pane == Viewports.Active) mode.SelectedItem = View.Mode.ToString(); };
+        Viewports.ActiveChanged += () => mode.SelectedItem = View.Mode.ToString();
         bar.Children.Add(mode);
         var shaded = new CheckBox { Content = "Shaded", IsChecked = View.Shaded, Foreground = Look.Text, Margin = new Thickness(8, 0) };
-        shaded.IsCheckedChanged += (_, _) => { View.Shaded = shaded.IsChecked == true; View.InvalidateVisual(); };
+        shaded.IsCheckedChanged += (_, _) => { Viewports.ForEachView(v => v.Shaded = shaded.IsChecked == true); Viewports.InvalidateViews(); };
         bar.Children.Add(shaded);
-        bar.Children.Add(Look.MakeButton("Fit", View.Fit, "Frame the scene (A)"));
+        bar.Children.Add(Look.MakeButton("Fit", Viewports.FitAll, "Frame the scene in every view (A)"));
+        var layout = new ComboBox { ItemsSource = LayoutNames, SelectedIndex = (int)Viewports.Kind, Width = 120, Name = "ViewLayout", Margin = new Thickness(8, 0, 0, 0) };
+        ToolTip.SetTip(layout, "One view, two side by side, two stacked, or four (Ctrl+1 to Ctrl+4)");
+        layout.SelectionChanged += (_, _) => { if (layout.SelectedIndex >= 0) ViewLayout = (ViewportLayoutKind)layout.SelectedIndex; };
+        ViewLayoutChanged += () => layout.SelectedIndex = (int)Viewports.Kind;
+        bar.Children.Add(layout);
         return bar;
     }
 
@@ -349,7 +368,7 @@ public sealed class MainWindow : Window
             // The chosen item is always one of the mode's, if it has any (as classic Layout's Selected Item was).
             if (Session.Selected is not { } s || !value.Includes(s)) Session.Select(Session.Scene.ItemsOf(value).FirstOrDefault());
             RefreshItems();
-            View.InvalidateVisual();
+            Viewports.InvalidateViews();
         }
     }
 
@@ -366,7 +385,7 @@ public sealed class MainWindow : Window
         get => View.DragMode;
         set
         {
-            View.DragMode = value;
+            Viewports.ForEachView(v => v.DragMode = value);
             foreach (var (d, b) in _dragButtons) Look.SetOn(b, d == value);
             foreach (var (a, b) in _axisButtons) Look.SetOn(b, View.Axes.HasFlag(a));
         }
@@ -376,8 +395,39 @@ public sealed class MainWindow : Window
     public void ToggleAxis(DragAxes axis)
     {
         var next = View.Axes ^ axis;
-        if (next != DragAxes.None) View.Axes = next;
+        if (next != DragAxes.None) Viewports.ForEachView(v => v.Axes = next);
         foreach (var (a, b) in _axisButtons) Look.SetOn(b, View.Axes.HasFlag(a));
+    }
+
+    // ───────────────────────────── the view layout ─────────────────────────────
+
+    /// <summary>The layouts' names in the View menu and the toolbar, in <see cref="ViewportLayoutKind"/>'s order.</summary>
+    public static readonly string[] LayoutNames = ["Single", "Side by Side", "Stacked", "Quad"];
+
+    private bool _arranging;
+
+    internal event Action? ViewLayoutChanged;
+
+    /// <summary>How the middle is split (View › Layout, Ctrl+1 to Ctrl+4); remembered in lightwave.json with each pane's view.</summary>
+    public ViewportLayoutKind ViewLayout
+    {
+        get => Viewports.Kind;
+        set
+        {
+            if (value == Viewports.Kind) return;
+            ArrangeViews(value);
+            Options.ViewLayout = value.ToString();
+            Options.Save();
+            ViewLayoutChanged?.Invoke();
+        }
+    }
+
+    private void ArrangeViews(ViewportLayoutKind kind)
+    {
+        var views = ViewportLayouts.ViewsOf(Options, kind).Select(v => Enum.Parse<LayoutViewMode>(v)).ToList();
+        _arranging = true;
+        try { Viewports.Arrange(kind, views); }
+        finally { _arranging = false; }
     }
 
     /// <summary>The open panel's name, or null.</summary>
@@ -469,7 +519,7 @@ public sealed class MainWindow : Window
         else SelectInChooser();
         _hubLight.Text = Hub.Running ? "Hub: on" : "Hub: off";
         Marks.InvalidateVisual();
-        View.InvalidateVisual();
+        Viewports.InvalidateViews();
         CurrentPanel?.Refresh();
         UpdateTitle();
     }
@@ -560,12 +610,14 @@ public sealed class MainWindow : Window
                     Item("_Remove Item", () => { if (Session.Selected is { } i) Session.Remove(i); })),
                 Group("_View", views.Select((v, n) => (object)Item($"_{n + 1} {v}", () => View.Mode = v)).Concat(new object[]
                 {
-                    "-", Item("_Fit", View.Fit, "A"),
+                    "-", Item("_Fit", Viewports.FitAll, "A"),
+                    Group("_Layout", Enum.GetValues<ViewportLayoutKind>().Select(k => (object)Item("_" + LayoutNames[(int)k], () => ViewLayout = k, $"Ctrl+{(int)k + 1}")).ToArray()),
                     Item("_Graph Editor", () => ShowBottom(BottomTab.GraphEditor)), Item("_Dope Sheet", () => ShowBottom(BottomTab.DopeSheet)),
                     Item("_Scene Editor", () => ShowBottom(BottomTab.SceneEditor)),
                 }).ToArray()),
                 Group("_Panels", _panels.Keys.Select(n => (object)Item("_" + n, () => ShowPanel(n))).ToArray()),
-                Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10")),
+                Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10"), "-",
+                    Item("Make _Preview…", () => MakePreview(), "Shift+P")),
                 Group("_Hub", Item("_Edit in Modeler", () => { if (Session.Selected is ObjectItem o) _ = EditInModeler(o); else SetStatus("Choose an object to edit in AVA Modeler."); }, "Ctrl+E"),
                     Item("_Link with AVA Modeler…", () => ShowPanel("Options"))),
                 Group("_AI", Item("_Chat with Claude…", ToggleChat, "F4"), Item("Allow AI _Agents…", () => ShowPanel("Options"))),
@@ -605,6 +657,11 @@ public sealed class MainWindow : Window
         Edit in Modeler (Ctrl+E) opens the chosen object in AVA Modeler; saving it there updates it here, keeping its
         motion. AVA Modeler's File › Send to AVALightWave puts its object in this scene.
 
+        View › Layout (Ctrl+1 to Ctrl+4) splits the middle into one view, two side by side, two stacked or four, each with
+        its own view type (the list in its corner); the last one clicked is the active view, which 1 to 6 change.
+        Render › Make Preview (Shift+P) plays a quick wireframe or shaded flipbook of the frames and saves it as PNGs, an
+        MP4 or a GIF.
+
         Ctrl+Z undoes any change to the scene, an AI agent's included. F9 renders a frame, F10 an animation, F4 opens the
         AI Chat. Scenes save as LightWave .lws (objects by their files) or .avascene (everything).
         """;
@@ -613,7 +670,8 @@ public sealed class MainWindow : Window
         Shift+O, Shift+B, Shift+L, Shift+C   edit objects, bones, lights, cameras
         ↑ ↓   the next or previous item          ← →   a frame back or on      Home, End   the first or last frame
         T Move, Y Rotate, H Size, Shift+H Stretch      N Numeric      Enter Create Key      Delete Delete Key
-        1 to 6   Camera, Perspective, Top, Front, Side, Light views      A fit      Space play
+        1 to 6   the active view: Camera, Perspective, Top, Front, Side, Light      A fit every view      Space play
+        Ctrl+1 to Ctrl+4   one view, two side by side, two stacked, four      Shift+P Make Preview
         G graph editor, D dope sheet, E Scene Editor
         Ctrl+N new scene, Ctrl+O load, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+E Edit in Modeler
         Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo, F4 AI Chat, F9 render a frame, F10 render an animation
@@ -652,6 +710,7 @@ public sealed class MainWindow : Window
                 case Key.S: _ = SaveScene(shift); return true;
                 case Key.Q: Close(); return true;
                 case Key.E: if (Session.Selected is ObjectItem o) _ = EditInModeler(o); return true;
+                case >= Key.D1 and <= Key.D4 when !shift: ViewLayout = (ViewportLayoutKind)(key - Key.D1); return true;
             }
             return false;
         }
@@ -664,6 +723,7 @@ public sealed class MainWindow : Window
                 case Key.L: Mode = EditMode.Lights; return true;
                 case Key.C: Mode = EditMode.Cameras; return true;
                 case Key.H: DragMode = ItemDrag.Stretch; return true;
+                case Key.P: MakePreview(); return true;
             }
             return false;
         }
@@ -683,7 +743,7 @@ public sealed class MainWindow : Window
             case Key.Up: Session.Select(Session.Scene.Step(_mode, Session.Selected, -1)); return true;
             case Key.Down: Session.Select(Session.Scene.Step(_mode, Session.Selected, 1)); return true;
             case Key.Space: TogglePlay(); return true;
-            case Key.A: View.Fit(); return true;
+            case Key.A: Viewports.FitAll(); return true;
             case Key.G: ShowBottom(BottomTab.GraphEditor); return true;
             case Key.D: ShowBottom(_bottom == BottomTab.DopeSheet ? BottomTab.GraphEditor : BottomTab.DopeSheet); return true;
             case Key.E: ShowBottom(_bottom == BottomTab.SceneEditor ? BottomTab.GraphEditor : BottomTab.SceneEditor); return true;
@@ -747,6 +807,38 @@ public sealed class MainWindow : Window
         SetStatus(made.Count > 0 ? $"Made {made.Count} bones from {owner.Name}'s skelegons." : $"{owner.Name} has no skelegons (2-point polygons on a \"Skelegon…\" surface).");
         return made;
     }
+    private PreviewWindow? _preview;
+
+    /// <summary>
+    /// Render › Make Preview (Shift+P): a quick flipbook of the scene's frames drawn as the view draws them, through the
+    /// scene's camera (or the active view if there's no camera), in a window of its own; one at a time.
+    /// </summary>
+    public PreviewWindow MakePreview()
+    {
+        _player.Stop();
+        if (_preview is { IsVisible: true })
+        {
+            _preview.Activate();
+            return _preview;
+        }
+        var s = Session.Scene;
+        var settings = new PreviewSettings
+        {
+            First = s.FirstFrame, Last = Math.Max(s.FirstFrame, s.LastFrame), Step = Math.Max(1, s.FrameStep),
+            Width = 480, Shaded = View.Shaded,
+        };
+        var w = _preview = new PreviewWindow(Session, settings, ActiveViewCamera, PickFile)
+        {
+            PlayWhenMade = !_forTests,
+        };
+        w.Closed += (_, _) => { if (_preview == w) _preview = null; };
+        w.Show(this);
+        w.Make();
+        return w;
+    }
+
+    /// <summary>The active pane's view as it is now, to make a preview through (null for a Camera view: the scene camera).</summary>
+    private AVAModeler.Rendering.ViewCamera? ActiveViewCamera() => View.Mode == LayoutViewMode.Camera ? null : View.Camera;
 
     public void Render()
     {
@@ -1062,7 +1154,6 @@ public sealed class MainWindow : Window
     {
         _autosaveTimer.Stop();
         Autosave?.Finish();
-        Options.ViewMode = View.Mode.ToString();
         Options.Save();
         Preferences.Save();
     }

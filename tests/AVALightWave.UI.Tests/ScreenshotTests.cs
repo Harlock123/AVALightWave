@@ -138,4 +138,37 @@ public class ScreenshotTests
         Shot(r, "render");
         r.Close();
     }
+
+    [AvaloniaFact]
+    public void The_quad_layout()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        w.Session.SetFrame(14);
+        w.ViewLayout = ViewportLayoutKind.Quad;
+        Ui.Pump();
+        w.Viewports.FitAll();
+        var perspective = w.Viewports.Panes[1].View;
+        perspective.Camera.Heading = 25;
+        perspective.Camera.Pitch = 20;
+        w.Viewports.Activate(w.Viewports.Panes[1]);
+        w.Session.Select(w.Session.Scene.Objects.Single(o => o.Name == "Ball"));
+        Shot(w, "quad");
+        Assert.Equal(4, w.Viewports.Shown.Count);
+    }
+
+    [AvaloniaFact]
+    public void The_preview_window()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        var p = w.MakePreview();
+        p.Width = 760;
+        p.Height = 640;
+        Ui.Wait(p.Making.ContinueWith(_ => 0, TaskScheduler.Default));
+        p.Show(13);
+        Shot(p, "preview");
+        Assert.True(p.Preview!.Complete);
+        p.Close();
+    }
 }
