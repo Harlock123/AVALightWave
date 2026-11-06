@@ -3,7 +3,7 @@ using AVAModeler.Formats;
 
 namespace AVALightWave.Core.Tests;
 
-/// <summary>A folder of a test's own, with copies of the repository's sample objects in it, deleted afterwards.</summary>
+/// <summary>A folder of a test's own, with copies of the repository's sample objects (objects/) and images (images/) in it, deleted afterwards.</summary>
 internal sealed class Workbench : IDisposable
 {
     public string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "avalightwave-" + Guid.NewGuid().ToString("N"));
@@ -13,6 +13,8 @@ internal sealed class Workbench : IDisposable
         Directory.CreateDirectory(Path);
         var objects = Directory.CreateDirectory(System.IO.Path.Combine(Path, "objects")).FullName;
         foreach (var f in Directory.GetFiles(Samples.Objects)) System.IO.File.Copy(f, System.IO.Path.Combine(objects, System.IO.Path.GetFileName(f)));
+        var images = Directory.CreateDirectory(System.IO.Path.Combine(Path, "images")).FullName;
+        foreach (var f in Directory.GetFiles(System.IO.Path.Combine(Samples.Folder, "images"))) System.IO.File.Copy(f, System.IO.Path.Combine(images, System.IO.Path.GetFileName(f)));
     }
 
     public string File(string name) => System.IO.Path.Combine(Path, name);

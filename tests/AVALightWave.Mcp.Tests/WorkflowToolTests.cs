@@ -145,3 +145,23 @@ public class MacroToolTests
         Assert.Null(b.Scene.Find("X"));
     }
 }
+
+/// <summary>make_preview: a flipbook of the frames in the working folder.</summary>
+public class PreviewToolTests
+{
+    [Fact]
+    public async Task A_preview_saves_its_frames_in_the_working_folder()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("add_object", new { file = "objects/ball.lwo", name = "Ball" });
+        var r = await s.Client.Json("make_preview", new { first = 1, last = 9, step = 4, width = 160, folder = "flip", name = "ball" });
+        Assert.Equal(3, (int?)r["frames"]);
+        Assert.Equal("ball0001.png", (string?)r["first_file"]);
+        Assert.Equal(3, Directory.GetFiles(b.Folder.File("flip"), "ball*.png").Length);
+        Assert.False(b.Host.Layout.History.CanUndo && b.Host.Layout.History.UndoLabel!.Contains("preview"));
+        Assert.Contains("outside the working folder", await s.Client.Fails("make_preview", new { folder = "../out" }));
+        Assert.Contains("width must be", await s.Client.Fails("make_preview", new { width = 20 }));
+        Assert.Contains("movie must be", await s.Client.Fails("make_preview", new { movie = "avi" }));
+    }
+}

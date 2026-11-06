@@ -16,7 +16,7 @@ namespace AVALightWave.Mcp.Tests;
 /// </summary>
 public class ServerTests
 {
-    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro"];
+    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro", "make_preview"];
 
     [Fact]
     public async Task It_serves_the_scene_tools_and_its_own_and_no_modeling_tool()
@@ -36,7 +36,7 @@ public class ServerTests
         Assert.Contains("save_object", tools.Single(t => t.Name == "save_scene").Description);
         Assert.Contains("no Modeler layers", tools.Single(t => t.Name == "set_morph").Description);
         var prompts = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Select(p => p.Name).ToList();
-        Assert.Equal(["camera_flyby", "light_sweep", "object_turntable", "render_on_farm", "stage_object", "three_point_lighting"], prompts.Order());
+        Assert.Equal(["camera_flyby", "clone_stagger", "composite_shot", "follow_and_jitter", "light_beams", "light_sweep", "morph_and_macro", "object_turntable", "render_on_farm", "rig_from_skelegons", "stage_object", "three_point_lighting"], prompts.Order());
         // AVA Modeler's own server is as it was.
         Assert.Contains(ModelerServer.Definitions(), t => t.Name == "run_tool");
     }

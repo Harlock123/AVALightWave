@@ -23,6 +23,12 @@ public class RecipeTests
         { "light_sweep", """{"frames": "12", "color": "blue"}""" },
         { "render_on_farm", """{"frames": "4", "width": "48", "samples": "1"}""" },
         { "three_point_lighting", """{"target": "pawn", "width": "64"}""" },
+        { "clone_stagger", """{"copies": "3"}""" },
+        { "light_beams", """{"samples": "1"}""" },
+        { "composite_shot", "{}" },
+        { "rig_from_skelegons", "{}" },
+        { "follow_and_jitter", """{"lag": "6"}""" },
+        { "morph_and_macro", """{"crates": "5"}""" },
     };
 
     internal static List<(string Tool, Dictionary<string, object?> Args)> CallsIn(string text) =>
@@ -42,7 +48,7 @@ public class RecipeTests
         using var b = new Bench();
         await using var s = await b.Serve();
         var tools = (await s.Client.ListToolsAsync(cancellationToken: Cancel)).Select(t => t.Name).ToHashSet();
-        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm" })
+        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm", "clone_stagger", "light_beams", "composite_shot", "rig_from_skelegons", "follow_and_jitter", "morph_and_macro" })
         {
             var prompt = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Single(p => p.Name == name);
             Assert.False(string.IsNullOrWhiteSpace(prompt.Description));
@@ -113,6 +119,51 @@ public class RecipeTests
                 Assert.Equal(-35, spot.RotationAt(1).X, 6);
                 Assert.Equal(35, spot.RotationAt(12).X, 6);
                 Assert.Null(scene.Find("Light"));
+                break;
+            case "clone_stagger":
+                Assert.Equal(["Hopper", "Hopper (2)", "Hopper (3)", "Hopper (4)"], scene.Objects.Skip(1).Select(o => o.Name));
+                var hop = scene.Find("Hopper")!;
+                var third = scene.Find("Hopper (3)")!;
+                Assert.Equal(hop.PositionAt(7).Y, third.PositionAt(13).Y, 6);
+                Assert.Equal(hop.PositionAt(1).X + 1.8, third.PositionAt(1).X, 6);
+                Assert.Equal(AVAModeler.Scene.SpanKind.Bezier, hop[AVAModeler.Scene.Channel.PositionY].Keys[1].Kind);
+                Assert.Equal(10, Directory.GetFiles(b.Folder.File("preview"), "stagger*.png").Length);
+                break;
+            case "light_beams":
+                var beam = Assert.IsType<LightItem>(scene.Find("Beam"));
+                Assert.True(beam.ShadowMap.On && beam.Volumetric.On && beam.Flare.On);
+                Assert.Equal(1024, beam.ShadowMap.Size);
+                Assert.Null(scene.Find("Light"));
+                break;
+            case "composite_shot":
+                Assert.Equal(2, scene.Images.Count);
+                Assert.EndsWith("sky.png", scene.Compositing.Background);
+                Assert.Equal(AVAModeler.Scene.ForegroundKey.Color, scene.Compositing.Key);
+                var subject = (ObjectItem)scene.Find("Subject")!;
+                Assert.Equal(1, subject.DissolveAt(1), 6);
+                Assert.Equal(0, subject.DissolveAt(18), 6);
+                break;
+            case "rig_from_skelegons":
+                Assert.Equal(["Upper", "Forearm"], scene.Bones.Select(x => x.Name));
+                var fore = scene.Find("Forearm")!;
+                Assert.Equal(0, fore.RotationAt(9.5).Z, 6);
+                Assert.Equal(50, fore.RotationAt(10).Z, 6);
+                Assert.Equal(35, scene.Find("Upper")!.RotationAt(15).Z, 6);
+                break;
+            case "follow_and_jitter":
+                var leader = scene.Find("Leader")!;
+                var follower = scene.Find("Follower")!;
+                Assert.Equal(leader.WorldPosition(24).X, follower.WorldPosition(30).X, 6);
+                Assert.Single(scene.Find("Nervous")!.Modifiers);
+                Assert.Single(scene.CurrentCamera!.Modifiers);
+                Assert.True(File.Exists(b.Folder.File(Path.Combine("motions", "leader.mot"))));
+                Assert.Equal(leader.PositionAt(20).X, scene.Find("Copy")!.PositionAt(20).X, 6);
+                break;
+            case "morph_and_macro":
+                var pawn = (ObjectItem)scene.Find("Pawn")!;
+                Assert.Equal("Squash", Assert.Single(pawn.Morphs).Name);
+                Assert.True(pawn.DeformedMesh(15).Bounds().Max.Y < pawn.BaseMesh().Bounds().Max.Y * 0.7);
+                Assert.Equal(6, scene.Objects.Count());
                 break;
             case "render_on_farm":
                 // The job waits in the farm folder until a node renders it; one does here.

@@ -376,6 +376,63 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
             };
         }, cancel);
 
+    [McpServerTool(Name = "make_preview", Destructive = true)]
+    [Description("Make Preview, as classic Layout had it: a quick flipbook of a range of frames drawn the way the Layout view draws them (shaded or wireframe, through the scene's camera in its frame shape), not ray traced, so it takes moments rather than minutes: use it to check motion before render_animation. The frames are saved as numbered PNGs (name0001.png…) in a folder inside the working folder, and with movie \"mp4\" or \"gif\" joined into a movie at the scene's frame rate (needs ffmpeg; without it the PNGs are kept and the reason given). Not an undo step. Returns the files.")]
+    public async Task<string> MakePreview(
+        [Description("The first frame (default the scene's first).")] int? first = null,
+        [Description("The last frame (default the scene's last).")] int? last = null,
+        [Description("Every how many frames (default the scene's frame step).")] int? step = null,
+        [Description("The picture's width in pixels, 160 to 1920 (default 320); the height follows the camera's frame shape.")] int width = 320,
+        [Description("Shaded faces (true, default) or wireframe.")] bool shaded = true,
+        [Description("The folder for the frames, inside the working folder (default \"preview\").")] string folder = "preview",
+        [Description("The frames' file name before their numbers (default \"preview\").")] string name = "preview",
+        [Description("\"none\" (default), \"mp4\" or \"gif\".")] string movie = "none",
+        CancellationToken cancel = default)
+    {
+        Preview preview;
+        string full;
+        try
+        {
+            if (width < 160 || width > 1920) throw new ArgumentException("width must be from 160 to 1920 pixels.");
+            var format = movie.Trim().ToLowerInvariant() switch
+            {
+                "none" => (MovieFormat?)null, "mp4" => MovieFormat.Mp4, "gif" => MovieFormat.Gif,
+                _ => throw new ArgumentException("movie must be \"none\", \"mp4\" or \"gif\"."),
+            };
+            if (Path.GetFileName(name) != name || name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) throw new ArgumentException("name must be a plain file name, e.g. \"bounce\".");
+            full = Inside(host.Root, folder);
+            preview = await host.RunSceneAsync("made a preview", (_, l) =>
+            {
+                var s = l.Scene;
+                return new Preview(s, new PreviewSettings
+                {
+                    First = first ?? s.FirstFrame, Last = last ?? s.LastFrame, Step = step ?? Math.Max(1, s.FrameStep), Width = width, Shaded = shaded,
+                });
+            }, cancel).ConfigureAwait(false);
+            await preview.MakeAsync(null, cancel).ConfigureAwait(false);
+            Directory.CreateDirectory(full);
+            var result = new JsonObject
+            {
+                ["frames"] = preview.Count, ["size"] = new JsonArray(preview.Width, preview.Height), ["through"] = preview.LooksThrough,
+                ["folder"] = Path.GetRelativePath(host.Root, full),
+            };
+            if (format is { } f)
+            {
+                var saved = await preview.SaveMovieAsync(full, name, f, MovieEncoder.FromPath(), cancel).ConfigureAwait(false);
+                result["first_file"] = Path.GetFileName(saved.Frames[0]);
+                result["movie"] = saved.Movie != null ? Path.GetRelativePath(host.Root, saved.Movie) : null;
+                if (saved.Problem != null) result["problem"] = saved.Problem;
+            }
+            else result["first_file"] = Path.GetFileName(preview.SavePngs(full, name)[0]);
+            if (preview.Note != null) result["note"] = preview.Note;
+            return result.ToJsonString();
+        }
+        catch (Exception e) when (e is not McpException and not OperationCanceledException)
+        {
+            throw new McpException(e.Message, e);
+        }
+    }
+
     // ───────────────────────────── helpers ─────────────────────────────
 
     /// <summary>Any item by name or #index.</summary>

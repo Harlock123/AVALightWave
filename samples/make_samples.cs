@@ -90,20 +90,22 @@ string Save(Commands c, string name)
 }
 
 // An arm for Skelegons → Bones: an upper arm and forearm (two boxes) with a chain of skelegons up its middle: 2-point
-// polygons on a "Skelegon" surface, as AVA Modeler's skelegon tools leave them.
+// polygons on "Skelegon …" surfaces, as AVA Modeler's skelegon tools leave them.
 {
     var c = Fresh();
     Surface(c, "Arm", new Rgb(110, 150, 210), 0.3, 64, false);
     c.Run("Box", new Dictionary<string, object?> { ["Center"] = new Vec3(0, 0.5, 0), ["Size"] = new Vec3(0.24, 1, 0.24), ["SegmentsY"] = 4, ["Surface"] = "Arm" });
     c.Run("Box", new Dictionary<string, object?> { ["Center"] = new Vec3(0, 1.45, 0), ["Size"] = new Vec3(0.2, 0.9, 0.2), ["SegmentsY"] = 4, ["Surface"] = "Arm" });
     var doc = c.Document;
-    doc.Surfaces.Add(new Surface("Skelegon") { Color = new Rgb(255, 220, 60) });
-    int skelegon = doc.Surfaces.Count - 1;
+    // One surface a skelegon, so the bones are named after them ("Upper", "Forearm").
+    doc.Surfaces.Add(new Surface("Skelegon Upper") { Color = new Rgb(255, 220, 60) });
+    doc.Surfaces.Add(new Surface("Skelegon Forearm") { Color = new Rgb(255, 220, 60) });
+    int upper = doc.Surfaces.Count - 2;
     var mesh = doc.Current.Mesh;
     int shoulder = mesh.Points.Count;
     mesh.Points.AddRange([new Vec3(0, 0, 0), new Vec3(0, 1, 0), new Vec3(0, 1.9, 0)]);
-    mesh.Polygons.Add(new Polygon([shoulder, shoulder + 1], skelegon));
-    mesh.Polygons.Add(new Polygon([shoulder + 1, shoulder + 2], skelegon));
+    mesh.Polygons.Add(new Polygon([shoulder, shoulder + 1], upper));
+    mesh.Polygons.Add(new Polygon([shoulder + 1, shoulder + 2], upper + 1));
     mesh.Touch();
     Save(c, "arm.lwo");
 }
