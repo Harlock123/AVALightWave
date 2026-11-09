@@ -13,6 +13,11 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Particle looks and collisions, hair swing, cloth** from the engine. Particles can be blobs that melt
+  together, puffs of smoke, glowing sprites or copies of another object, and can stick to, bounce off or die on
+  other objects as they move. Hair can be combed and swing as its object moves. An object's panel can make it
+  cloth or a soft body: it falls, drapes over other objects, can be pinned by a surface and stops on a floor.
+  Agents get `set_soft_body` and the new `set_particles` and `set_hair` options.
 - **Particles and hair** from the engine. An object's panel can emit particles (from its faces, points or pivot,
   between two frames, falling under gravity with drag and stopping on a floor) and grow hair (tapering strands with
   a density, length, droop and frizz that follow bones and morphs). Agents set them with `set_particles` and
