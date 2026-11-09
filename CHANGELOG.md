@@ -13,6 +13,10 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Particles and hair** from the engine. An object's panel can emit particles (from its faces, points or pivot,
+  between two frames, falling under gravity with drag and stopping on a floor) and grow hair (tapering strands with
+  a density, length, droop and frizz that follow bones and morphs). Agents set them with `set_particles` and
+  `set_hair`. Both render and save in `.avascene` files, not `.lws`.
 - **3MF objects** open (and save) through the engine: each object a layer, each base material a surface, in its
   unit. AVA Modeler's slicer work (two extruders, the prime tower, ironing, adaptive layers) is in the engine too,
   though AVALightWave doesn't print.
