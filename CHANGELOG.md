@@ -3,6 +3,14 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **The engine** is AVA Modeler with its 3D printing slicer. STL files are now read as millimetres, as slicers and
+  other programs write them, so an STL object loads at its real size in metres (it used to load 1000 times too big);
+  STL saved from here is written in millimetres too.
+
 ## [0.2.0] - 2026-11-05
 
 Everyday Layout tools, rendering and animation features, a render farm, live sync with AVA Modeler, OpenGL views and
