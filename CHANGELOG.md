@@ -11,6 +11,12 @@ All notable changes to AVALightWave are recorded here. The format follows
   other programs write them, so an STL object loads at its real size in metres (it used to load 1000 times too big);
   STL saved from here is written in millimetres too.
 
+### Fixed
+
+- **OpenGL views** are sized from the framebuffer OpenGL draws into, not from the pane's size times the screen's
+  scaling, which could disagree: at 2× on Wayland the Perspective and Camera views drew shrunk into their bottom-left
+  corner. Turning OpenGL on says the framebuffer's size in the status line.
+
 ## [0.2.0] - 2026-11-05
 
 Everyday Layout tools, rendering and animation features, a render farm, live sync with AVA Modeler, OpenGL views and
