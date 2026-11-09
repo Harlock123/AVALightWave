@@ -758,7 +758,7 @@ public sealed class MainWindow : Window
 
     public const string Help = """
         AVALightWave stages, animates and renders scenes. Load objects with File › Load Object (LightWave .lwo, .obj, .geo,
-        .glb, .gltf, .stl); a scene holds as many as you like. Add lights, cameras, nulls and bones from the Items menu or
+        .glb, .gltf, .stl, .3mf); a scene holds as many as you like. Add lights, cameras, nulls and bones from the Items menu or
         the panels.
 
         The Edit buttons on the left choose what the mouse works on: objects (and nulls), bones, lights or cameras. Click

@@ -31,7 +31,7 @@ public static class LayoutMacros
         ("kind(item)", "an item's kind"),
         ("frame() / frame(n)", "the current frame, or go to frame n"),
         ("frames() / frames(first, last [, fps])", "the scene's first and last frames (and frames per second), or set them"),
-        ("addobject(path [, name])", "loads an object file (.lwo, .obj, .geo, .glb, .gltf, .stl); returns its name"),
+        ("addobject(path [, name])", "loads an object file (.lwo, .obj, .geo, .glb, .gltf, .stl, .3mf); returns its name"),
         ("addnull(name) / addcamera(name)", "adds a null or a camera; returns its name"),
         ("addlight(name [, type])", "adds a light: \"distant\" (default), \"point\", \"spot\" or \"area\"; returns its name"),
         ("remove(item)", "takes an item out of the scene (an object takes its bones)"),

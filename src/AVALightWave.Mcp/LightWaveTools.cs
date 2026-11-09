@@ -20,7 +20,7 @@ namespace AVALightWave.Mcp;
 public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
 {
     [McpServerTool(Name = "replace_object", Destructive = true)]
-    [Description("Replace Object, as classic Layout had it: the object item takes another file's geometry and surfaces (from the working folder: .lwo, .lw, .obj, .geo, .glb, .gltf or .stl), keeping its name, position, rotation, scale, keys, parent, bones and settings. An item named after its old file takes the new file's name. One undo step. Returns the item with its point and polygon counts.")]
+    [Description("Replace Object, as classic Layout had it: the object item takes another file's geometry and surfaces (from the working folder: .lwo, .lw, .obj, .geo, .glb, .gltf, .stl or .3mf), keeping its name, position, rotation, scale, keys, parent, bones and settings. An item named after its old file takes the new file's name. One undo step. Returns the item with its point and polygon counts.")]
     public Task<string> ReplaceObject(
         [Description("The object item, by name or #index from get_scene.")] string @object,
         [Description("The object file, relative to the working folder, e.g. \"objects/ship2.lwo\".")] string file,
@@ -41,7 +41,7 @@ public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
         }, cancel);
 
     [McpServerTool(Name = "save_object", Destructive = true)]
-    [Description("Saves an object item's geometry and surfaces to a file in the working folder, the format chosen by the extension (.lwo keeps everything; .obj, .geo, .glb, .gltf, .stl for other programs), and makes it the object's file, so a .lws scene saved afterwards refers to it. An existing file is only replaced when overwrite is true. Not an undo step (files aren't undone).")]
+    [Description("Saves an object item's geometry and surfaces to a file in the working folder, the format chosen by the extension (.lwo keeps everything; .obj, .geo, .glb, .gltf, .stl, .3mf for other programs), and makes it the object's file, so a .lws scene saved afterwards refers to it. An existing file is only replaced when overwrite is true. Not an undo step (files aren't undone).")]
     public Task<string> SaveObject(
         [Description("The object item, by name or #index from get_scene.")] string @object,
         [Description("The file, relative to the working folder, e.g. \"objects/ship.lwo\".")] string path,

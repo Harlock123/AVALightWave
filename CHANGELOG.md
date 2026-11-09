@@ -11,6 +11,12 @@ All notable changes to AVALightWave are recorded here. The format follows
   other programs write them, so an STL object loads at its real size in metres (it used to load 1000 times too big);
   STL saved from here is written in millimetres too.
 
+### Added
+
+- **3MF objects** open (and save) through the engine: each object a layer, each base material a surface, in its
+  unit. AVA Modeler's slicer work (two extruders, the prime tower, ironing, adaptive layers) is in the engine too,
+  though AVALightWave doesn't print.
+
 ### Fixed
 
 - **OpenGL views** are sized from the framebuffer OpenGL draws into, not from the pane's size times the screen's

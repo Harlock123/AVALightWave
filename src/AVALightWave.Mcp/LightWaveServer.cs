@@ -20,7 +20,7 @@ public static class LightWaveServer
     public static readonly IReadOnlySet<string> EngineRecipes = new HashSet<string> { "three_point_lighting" };
 
     public const string Instructions = """
-        AVALightWave is a standalone scene, animation and render program in the spirit of classic LightWave Layout (versions 4 and 5). You stage objects loaded from files, light them, animate them and ray-trace them, with the same tools a person uses in its panels. It doesn't model: objects come from files (LightWave .lwo, .obj, .geo, .glb/.gltf, .stl) in the working folder, and the person can send one to AVA Modeler, the companion modeler, to change its shape (edit_in_modeler, in the open window), after which its saves update it here.
+        AVALightWave is a standalone scene, animation and render program in the spirit of classic LightWave Layout (versions 4 and 5). You stage objects loaded from files, light them, animate them and ray-trace them, with the same tools a person uses in its panels. It doesn't model: objects come from files (LightWave .lwo, .obj, .geo, .glb/.gltf, .stl, .3mf) in the working folder, and the person can send one to AVA Modeler, the companion modeler, to change its shape (edit_in_modeler, in the open window), after which its saves update it here.
 
         Conventions (they matter):
         - Units are metres. The space is left-handed, as LightWave's: +X right, +Y up, +Z away from the viewer in the Front view. Items have position [x, y, z], rotation [heading, pitch, bank] in degrees and scale. Heading turns about +Y (90 faces +X), then pitch about the turned X axis (positive looks down), then bank about the turned Z axis. Cameras look along their +Z axis with +Y up; distant and spot lights shine along their +Z; point lights shine every way. look_at aims anything at a point or item.
@@ -48,7 +48,7 @@ public static class LightWaveServer
     /// <summary>AVALightWave's tool descriptions where the engine's speak of a Modeler object it doesn't have.</summary>
     public static string Describe(string tool, string description) => tool switch
     {
-        "add_object" => "Loads an object file from the working folder (.lwo, .lw, .obj, .geo, .glb, .gltf or .stl) into the scene as a new item; give file. layer (1 to 10) takes just that layer of a layered object; otherwise every non-empty layer, merged. The object's own coordinates are kept: position, rotation and scale (constants, not keys) place it. Several objects may come from one file. Returns the item, with its world bounds.",
+        "add_object" => "Loads an object file from the working folder (.lwo, .lw, .obj, .geo, .glb, .gltf, .stl or .3mf) into the scene as a new item; give file. layer (1 to 10) takes just that layer of a layered object; otherwise every non-empty layer, merged. The object's own coordinates are kept: position, rotation and scale (constants, not keys) place it. Several objects may come from one file. Returns the item, with its world bounds.",
         "save_scene" => description.Replace("(the Modeler's unsaved changes are then lost)", "(changes not saved with save_object are then lost)", StringComparison.Ordinal)
             .Replace("(save the object first with save, as .lwo)", "(save_object first for an object with no file or unsaved changes)", StringComparison.Ordinal)
             .Replace("AVA Modeler's own", "the engine's own", StringComparison.Ordinal),
