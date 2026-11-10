@@ -13,6 +13,13 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Fluids, combing by hand, cloth that keeps off itself, smoke in reflections and shadows** from the engine.
+  Particles can flow as a liquid, pouring, splashing and filling a tank or bowl, drawn as one surface with the Blob
+  look. Hair can be combed with the mouse (Comb with the mouse in an object's panel turns dragging in a view into a
+  brush) and swings with the bones that move it as well as the object. Cloth can be kept from passing through
+  itself. Puffs of smoke show in reflections and refraction, cast soft shadows and shade each other. Particles, hair
+  and soft bodies are now kept in `.lws` scenes too, as plugin sections LightWave skips. Agents get `comb_hair` and
+  the new `fluid`, `viscosity`, `self_collide` and `self_distance` options.
 - **Particle looks and collisions, hair swing, cloth** from the engine. Particles can be blobs that melt
   together, puffs of smoke, glowing sprites or copies of another object, and can stick to, bounce off or die on
   other objects as they move. Hair can be combed and swing as its object moves. An object's panel can make it
