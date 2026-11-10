@@ -45,6 +45,9 @@ public sealed class LightWaveOptions
     /// <summary>The AI Chat's saved conversations (only with Keep chat history on).</summary>
     public static string ChatsFolder => Path.Combine(Folder, "chats");
 
+    /// <summary>The AI Chat's use day by day (tokens and estimated dollars only), for its today and this-month totals.</summary>
+    public static string ChatUsagePath => Path.Combine(Folder, "chat-usage.json");
+
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
     /// <summary>Where these were loaded from and <see cref="Save"/> writes; null (made with <c>new</c>, as tests' are) saves nowhere.</summary>

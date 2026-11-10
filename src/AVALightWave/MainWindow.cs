@@ -181,6 +181,7 @@ public sealed class MainWindow : Window
         if (!forTests)
         {
             Chat.History = new ChatHistory(LightWaveOptions.ChatsFolder);
+            Chat.Ledger = new UsageLedger(LightWaveOptions.ChatUsagePath);
             Chat.RestoreLast();
         }
 

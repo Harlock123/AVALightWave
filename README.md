@@ -147,7 +147,9 @@ they make is one undo step.
   to Claude through your own Anthropic API key, or to a local or self-hosted model through an OpenAI-compatible API,
   with exactly AVA Modeler's rules: the key comes from `ANTHROPIC_API_KEY` or an owner-only `anthropic-api-key` file
   beside AVALightWave's `preferences.json` (a gateway's key only from its own file), is never shown beyond a mask, logged
-  or saved in a chat; chat history is off until you turn it on, and then kept owner-only in `chats/`.
+  or saved in a chat; chat history is off until you turn it on, and then kept owner-only in `chats/`. A line under the
+  input shows the chat's tokens and estimated cost as they're used, each turn gets a tag with its requests and cost,
+  and Setup… has the prices, today's and this month's totals (in `chat-usage.json`) and a budget that stops a chat.
 - **Outside agents**: with Options › Allow AI agents on, `AVALightWave --mcp --attach` connects an agent (Claude Code,
   say) to the open window through AVALightWave's own local pipe; `AVALightWave --mcp` serves a headless scene of its
   own.

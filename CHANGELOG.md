@@ -13,6 +13,10 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **What the AI Chat uses**, shown as it's used (from the engine): a line under the input with the chat's tokens and
+  estimated cost, updated while a request runs; a tag after each turn with its requests, tokens, pictures and
+  estimate; and in Setup… the prices (changeable), today's and this month's totals with Reset, and a budget that
+  stops a chat between requests. The totals are kept in `chat-usage.json` in AVALightWave's settings folder.
 - **Fluids, combing by hand, cloth that keeps off itself, smoke in reflections and shadows** from the engine.
   Particles can flow as a liquid, pouring, splashing and filling a tank or bowl, drawn as one surface with the Blob
   look. Hair can be combed with the mouse (Comb with the mouse in an object's panel turns dragging in a view into a
