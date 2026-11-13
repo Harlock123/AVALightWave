@@ -365,9 +365,9 @@ public sealed partial class LightWaveTools
 
     private static JsonArray Numbers(double[] v) => new([.. v.Select(x => (JsonNode)x)]);
 
-    private static JsonObject Tool(string name, object parameters) => new() { ["name"] = name, ["params"] = JsonSerializer(parameters) };
+    private static JsonObject Tool(string name, object parameters) => new() { ["name"] = name, ["params"] = ToNode(parameters) };
 
-    private static JsonNode JsonSerializer(object o) => System.Text.Json.JsonSerializer.SerializeToNode(o)!;
+    private static JsonNode ToNode(object o) => System.Text.Json.JsonSerializer.SerializeToNode(o)!;
 
     private static JsonArray V(double x, double y, double z) => new(x, y, z);
 

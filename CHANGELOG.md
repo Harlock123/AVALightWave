@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Shot lists** for agents: `build_shots` lays out a cut of shots, each through its own camera, and
+  `render_shots` renders them in order as one sequence (and a movie).
 - **`review_shot`** for agents: the shot's check and a contact sheet with numbered frames in one call, so an agent
   looks at its work before reporting.
 - **Exact shot checks**: `check_shot` now looks at objects' real (deformed) shapes rather than their boxes: what's
