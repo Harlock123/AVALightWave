@@ -80,8 +80,12 @@ the waveform and OpenAL playback in AVALightWave, behind `ISoundOutput` so tests
 
 ## Milestone D: rendering
 
-**Status:** stages 1 to 3 done (light linking, AVA Modeler e1406ed; passes and the denoiser, 9a4a3d5, the denoiser
-edge-stopping on each pixel's local noise. The views still light everything).
+**Status:** done. Light linking is AVA Modeler e1406ed; passes and the denoiser 9a4a3d5 (the denoiser edge-stopping on
+each pixel's local noise; the views still light everything). Scatter is AVA Modeler 817865d: the copies are real
+geometry merged into the object's frame (`Scene.Grow`, as particle instances are), not instances with a BVH of their
+own, so they are capped by the instance face budget (`ParticleLooks.MaxInstanceFaces`); true instancing is left for
+later. The sun sky is `builtin:sun` (0c1a9fe), an analytic model, not Preetham's or Hosek's; `make_terrain` and
+`set_sky` are Core's `Terrain` and `SunPosition` with `Mcp/WorldTools.cs`. The sky doesn't change over time.
 
 1. **Light linking (engine).** A light can light only listed objects, or every object but listed ones, in the ray
    tracer, shadow maps and the views. It is in `set_item` and the light panel.

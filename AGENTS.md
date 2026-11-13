@@ -53,6 +53,10 @@ python3 tools/make_icon.py                        # redraws the icon
     `SoftwareRenderer` and `SceneDrawing` on a `Scene.Copy` on a worker, under a 512 MB cap, saved through the engine's
     PNG writer, `AnimationRender.FileName` and `MovieEncoder`); `ViewportLayouts.cs` (layout kinds, panes, default views,
     and what `LightWaveOptions.ViewLayout` and `LayoutViews` remember; `ViewMode` is the Single layout's view).
+  - The milestones' Core files (`MILESTONES.md`): `CameraBookmarks.cs`, `ScenePackage.cs`, `ActionClips.cs` (clips in
+    the scene's extras and .action files), `Characters.cs` (the rig and the walk, legs solved analytically every frame),
+    `Sound.cs` (`WavSound`, `ISoundOutput`, `SceneSound`, `LipSync`) and `Terrain.cs` (`TerrainSettings`, `Terrain`,
+    `SunPosition`). Extras keys are named `avalightwave.<what>`.
   - `RenderFarm.cs` (the farm's folder protocol: `FarmJobSpec`, `FarmSubmit`, `FarmFolder` with Submit, Scan, Status,
     Nodes, Cancel, Remove, RemoveFinished, Move, NodeCommand and DefaultQueue, and `FarmFiles`: atomic writes, create-new
     claims, bounded reads, `RealPath`, `IsInside`) and `FarmNode.cs` (`FarmNode`, a node's loop; `FarmJobLoader`, which
@@ -69,7 +73,10 @@ python3 tools/make_icon.py                        # redraws the icon
   work, and `EngineCaller`, which calls the engine's or AVALightWave's tools in process by MCP name with JSON
   arguments), `MakingTools.cs` (make_object, build_object, edit_object, surfaces: the engine's modeling calls on
   documents of their own), `Motion.cs` and `AnimateTools.cs` (animate's moves as keys, camera_move), `Shot.cs` and
-  `ShotTools.cs` (build_scene, frame_items, check_shot), `SceneRecipes.cs` (the recipes made from nothing).
+  `ShotTools.cs` (build_scene, frame_items, check_shot), `SceneRecipes.cs` (the recipes made from nothing). The
+  milestones' tools: `ConvenienceTools.cs` (camera_bookmark, package_scene), `ShotWizards.cs`, `ReviewTools.cs`,
+  `ShotListTools.cs`, `Styles.cs`, `PhysicsTools.cs`, `CharacterTools.cs` (sound, actions, characters, lip sync) and
+  `WorldTools.cs` (set_scatter, make_terrain, set_sky).
 - `src/AVALightWave/`: the window. `MainWindow.cs` (the layout, modes, panels, keys, files, hub, agents, auto-save,
   macros and OpenGL), `Panels.cs` (the panels; Objects, Bones, Lights and Camera are one `ItemsPanel` per edit mode
   around the engine's `ItemPropertiesPanel`, with `ItemExtras.cs` adding a light's shadow type, lens flare and

@@ -156,7 +156,7 @@ public sealed partial class LightWaveTools
     }
 
     [McpServerTool(Name = "frame_items", Destructive = true)]
-    [Description("Places a camera so chosen items fill its picture with a margin, aimed at their middle, looking from a direction: by name (front, three_quarter, side, left, back, top, low) or [x, y, z] from the items toward the camera (default: from where the camera is now). At one frame (default the current), or over start to end: then it fits everywhere they go in that time from one place, or with follow true keys the camera every few frames to keep them framed as they move. Items: names, or \"all\" (every object but the ground). One undo step. Returns where it put the camera and how far it is.")]
+    [Description("Places a camera so chosen items fill its picture with a margin, aimed at their middle, looking from a direction: by name (front, three_quarter, side, left, back, top, low) or [x, y, z] from the items toward the camera (default: from where the camera is now, raised to look down a little if it would look up from below). At one frame (default the current), or over start to end: then it fits everywhere they go in that time from one place, or with follow true keys the camera every few frames to keep them framed as they move. Items: names, or \"all\" (every object but the ground). One undo step. Returns where it put the camera and how far it is.")]
     public Task<string> FrameItems(
         [Description("The items to fit, by name; [\"all\"] or empty for every object but the ground.")] string[]? items = null,
         [Description("The camera (default: the current one).")] string? camera = null,
@@ -186,7 +186,15 @@ public sealed partial class LightWaveTools
             var fromNode = from is { } fe ? (fe.ValueKind == JsonValueKind.String && fe.GetString()!.TrimStart().StartsWith('[') ? JsonNode.Parse(fe.GetString()!) : JsonNode.Parse(fe.GetRawText())) : null;
             var frames = start != null ? Shot.Frames(start.Value, end!.Value, follow ? Math.Max(0.5, every) : Math.Max(1, (end.Value - start.Value) / 24)) : [f0];
             Vec3 Middle(double f) { var b = Box3.Of(targets.SelectMany(t => Shot.Corners(t, f))); return (b.Min + b.Max) * 0.5; }
-            var direction = Shot.Direction(fromNode, cam.WorldPosition(f0) - Middle(f0) is var d && d.Length > 1e-6 ? d : new Vec3(0, 0.25, -1));
+            // Without from, keep the camera's side of the subject, but never from below it: a camera at eye height looking
+            // at something taller (a hill, a tower) would otherwise be fitted far under the ground looking up.
+            var kept = cam.WorldPosition(f0) - Middle(f0) is var d && d.Length > 1e-6 ? d : new Vec3(0, 0.25, -1);
+            if (kept.Y < 0)
+            {
+                double flat = Math.Sqrt(kept.X * kept.X + kept.Z * kept.Z);
+                kept = flat > 1e-9 ? new Vec3(kept.X, 0.25 * flat, kept.Z) : new Vec3(0, 0.25, -1);
+            }
+            var direction = Shot.Direction(fromNode, kept);
             var calls = SceneCalls(root, c, l, ["set_transform", "look_at"]);
             var o = new JsonObject { ["camera"] = cam.Name, ["items"] = new JsonArray([.. targets.Select(t => (JsonNode)t.Name)]) };
             if (!follow)

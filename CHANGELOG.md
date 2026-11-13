@@ -13,6 +13,19 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Worlds** for agents: `make_terrain` makes a landscape from noise (hills or mountains, weathered, on grass, rock and
+  snow surfaces); `set_scatter` spreads copies of an object over another's faces (by count and seed, on one surface,
+  thinned by a picture; the engine's scatter); `set_sky` gives the scene the engine's new sun sky (`builtin:sun`: the
+  sun's disc and glow, sunset colours, dusk and night, haze) by heading and elevation or by time of day and latitude,
+  with a distant Sun light shining from it.
+
+### Fixed
+
+- `frame_items` without `from` no longer puts the camera under a subject taller than it (a hill, a tower) looking up:
+  it keeps the camera's side but looks down a little.
+
+### Added
+
 - **A denoiser and render passes** (from the engine): the Render and Render Animation windows' Denoise box, and
   `denoise` on render_scene, render_animation and queue_render (the farm's nodes too); render_animation saves depth,
   normal, object ID, albedo, emission, shadow and reflection passes.
