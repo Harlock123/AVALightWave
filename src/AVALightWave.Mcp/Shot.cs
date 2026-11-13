@@ -54,7 +54,8 @@ internal static class Shot
     /// <summary>How an item sits in the picture at a frame: in view, cut off by the edge, out of view, behind the camera; and how much of the picture's height it fills.</summary>
     public static (string Where, double Fill) InPicture(CameraItem cam, SceneItem item, double frame)
     {
-        var corners = Corners(item, frame);
+        // The object's own points (deformed at the frame), not its box: a box's corner can be off the picture when the shape isn't.
+        var corners = item is ObjectItem o && WorldPoints(o, frame) is { Count: > 0 } pts ? pts : Corners(item, frame);
         int behind = 0, inside = 0;
         double minX = double.MaxValue, maxX = double.MinValue, minY = double.MaxValue, maxY = double.MinValue;
         foreach (var c in corners)
@@ -64,10 +65,10 @@ internal static class Shot
             if (Math.Abs(x) <= 1 && Math.Abs(y) <= 1) inside++;
             minX = Math.Min(minX, x); maxX = Math.Max(maxX, x); minY = Math.Min(minY, y); maxY = Math.Max(maxY, y);
         }
-        if (behind == corners.Length) return ("behind", 0);
+        if (behind == corners.Count) return ("behind", 0);
         double fill = behind > 0 ? 1 : Math.Min(1, (Math.Min(maxY, 1) - Math.Max(minY, -1)) / 2);
         if (behind == 0 && (maxX < -1 || minX > 1 || maxY < -1 || minY > 1)) return ("out", 0);
-        if (inside == corners.Length) return ("in", fill);
+        if (inside == corners.Count) return ("in", fill);
         return ("cut", fill);
     }
 
@@ -149,12 +150,13 @@ internal static class Shot
                 {
                     var sink = at.Where(f =>
                     {
-                        var b = Bounds(o, f);
                         var gb = Bounds(g, f);
-                        bool over = b.Max.X > gb.Min.X && b.Min.X < gb.Max.X && b.Max.Z > gb.Min.Z && b.Min.Z < gb.Max.Z;
-                        return over && b.Min.Y < gb.Max.Y - Math.Max(0.01, 0.05 * (b.Max.Y - b.Min.Y));
+                        var over = WorldPoints(o, f).Where(p => p.X > gb.Min.X && p.X < gb.Max.X && p.Z > gb.Min.Z && p.Z < gb.Max.Z).ToList();
+                        if (over.Count == 0) return false;
+                        var b = Bounds(o, f);
+                        return over.Min(p => p.Y) < gb.Max.Y - Math.Max(0.01, 0.03 * (b.Max.Y - b.Min.Y));
                     }).ToList();
-                    if (sink.Count > 0) Add("below_ground", o.Name, sink, $"{o.Name}'s bottom goes below the top of {g.Name}.", $"Raise it (its bottom should be at y = {Bounds(g, sink[0]).Max.Y:0.###}), or check its bounce or move.");
+                    if (sink.Count > 0) Add("below_ground", o.Name, sink, $"{o.Name} goes below the top of {g.Name} (its lowest point, not just its box).", $"Raise it (its bottom should be at y = {Bounds(g, sink[0]).Max.Y:0.###}), or check its bounce or move.");
                 }
             }
             // Reached by a light?
@@ -174,15 +176,16 @@ internal static class Shot
             {
                 var (a, b) = (movers[i], movers[j]);
                 if (a.Ancestors().Contains(b) || b.Ancestors().Contains(a)) continue;
-                var hits = frames.Where(f => Shown(a, f) && Shown(b, f) && Overlap(Bounds(a, f), Bounds(b, f)) > 0.35).ToList();
-                if (hits.Count > 0) Add("overlap", $"{a.Name} and {b.Name}", hits, $"{a.Name} and {b.Name} take up the same space.", "Move one of them, or check their moves' timing.");
+                var hits = frames.Where(f => Shown(a, f) && Shown(b, f) && Overlap(Bounds(a, f), Bounds(b, f)) > 0
+                    && Math.Max(Inside(a, b, f), Inside(b, a, f)) > 0.04).ToList();
+                if (hits.Count > 0) Add("overlap", $"{a.Name} and {b.Name}", hits, $"{a.Name} and {b.Name} pass into each other (points of one inside the other's shape, not just touching).", "Move one of them, or check their moves' timing.");
             }
 
         // The camera inside something.
         foreach (var o in objects)
         {
-            var inside = frames.Where(f => Shown(o, f) && Contains(Bounds(o, f), cam.WorldPosition(f))).ToList();
-            if (inside.Count > 0) Add("camera_inside", o.Name, inside, $"{cam.Name} is inside {o.Name}'s box.", "Move the camera out (frame_items, or set_transform).");
+            var inside = frames.Where(f => Shown(o, f) && Contains(Bounds(o, f), cam.WorldPosition(f)) && InsideShape(o, f, cam.WorldPosition(f))).ToList();
+            if (inside.Count > 0) Add("camera_inside", o.Name, inside, $"{cam.Name} is inside {o.Name}.", "Move the camera out (frame_items, or set_transform).");
         }
 
         // Nothing at all to see.
@@ -241,6 +244,89 @@ internal static class Shot
             return true;
         }
         return false;
+    }
+
+    /// <summary>What's worked out about an object at a frame, kept until the scene changes: its deformed mesh, world points and ray tree.</summary>
+    private sealed class Probe
+    {
+        public required Mesh Mesh;
+        public required Mat4 World;
+        public Mat4? ToLocal;
+        public IReadOnlyList<Vec3>? Points;
+        public AVAModeler.Geometry.TriangleBvh? Tree;
+    }
+
+    private sealed class ProbeCache
+    {
+        public int Version = -1;
+        public readonly Dictionary<double, Probe> At = [];
+    }
+
+    private static readonly System.Runtime.CompilerServices.ConditionalWeakTable<ObjectItem, ProbeCache> Probes = new();
+
+    private static Probe ProbeOf(ObjectItem o, double frame)
+    {
+        var cache = Probes.GetValue(o, _ => new ProbeCache());
+        lock (cache)
+        {
+            int version = o.Scene?.Version ?? -2;
+            if (cache.Version != version) { cache.At.Clear(); cache.Version = version; }
+            if (!cache.At.TryGetValue(frame, out var probe))
+            {
+                if (cache.At.Count > 4000) cache.At.Clear();
+                cache.At[frame] = probe = new Probe { Mesh = o.DeformedMesh(frame), World = o.WorldMatrix(frame) };
+            }
+            return probe;
+        }
+    }
+
+    /// <summary>An object's points in the world at a frame (deformed: morphs, bones, displacements), at most about 800 of them, evenly picked.</summary>
+    public static IReadOnlyList<Vec3> WorldPoints(ObjectItem o, double frame)
+    {
+        var probe = ProbeOf(o, frame);
+        if (probe.Points != null) return probe.Points;
+        var mesh = probe.Mesh;
+        int step = Math.Max(1, mesh.Points.Count / 800);
+        var list = new List<Vec3>(mesh.Points.Count / step + 1);
+        for (int i = 0; i < mesh.Points.Count; i += step) list.Add(probe.World.TransformPoint(mesh.Points[i]));
+        return probe.Points = list;
+    }
+
+    /// <summary>Whether a world point is inside an object's shape at a frame: rays crossing its surface an odd number of times (for closed shapes).</summary>
+    public static bool InsideShape(ObjectItem o, double frame, Vec3 world)
+    {
+        var probe = ProbeOf(o, frame);
+        if (probe.Mesh.Polygons.Count == 0) return false;
+        probe.Tree ??= new AVAModeler.Geometry.TriangleBvh(probe.Mesh);
+        probe.ToLocal ??= probe.World.Inverted();
+        var p = probe.ToLocal.Value.TransformPoint(world);
+        // Two skewed directions must agree, so a ray grazing an edge doesn't decide it.
+        return Odd(probe.Tree, p, new Vec3(0.5773, 0.5821, 0.5717)) && Odd(probe.Tree, p, new Vec3(-0.4121, 0.7032, -0.5795));
+    }
+
+    private static bool Odd(AVAModeler.Geometry.TriangleBvh tree, Vec3 p, Vec3 dir)
+    {
+        dir = dir.Normalized();
+        int crossings = 0;
+        var from = p;
+        for (int i = 0; i < 200; i++)
+        {
+            if (tree.Raycast(new Ray(from, dir)) is not { } hit) break;
+            crossings++;
+            from = hit.Point + dir * 1e-6;
+        }
+        return crossings % 2 == 1;
+    }
+
+    /// <summary>The fraction of a's points that are inside b's shape at a frame.</summary>
+    private static double Inside(ObjectItem a, ObjectItem b, double frame)
+    {
+        var bb = Bounds(b, frame);
+        var pts = WorldPoints(a, frame).Where(p => Contains(bb, p)).ToList();
+        if (pts.Count == 0) return 0;
+        int all = WorldPoints(a, frame).Count;
+        int inside = pts.Count(p => InsideShape(b, frame, p));
+        return (double)inside / all;
     }
 
     private static double Overlap(Box3 a, Box3 b)

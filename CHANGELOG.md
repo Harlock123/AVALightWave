@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Exact shot checks**: `check_shot` now looks at objects' real (deformed) shapes rather than their boxes: what's
+  in the picture, how low an object goes over the ground, and whether one passes into another.
 - **Turntable and Product Shot wizards** (Render menu): an object on a turntable, or on a pedestal under studio
   light with the camera pushing in, built in one undo step with no agent.
 - **Package Scene**: File › Package Scene (or as Zip) gathers the scene, its objects' files and every image it uses

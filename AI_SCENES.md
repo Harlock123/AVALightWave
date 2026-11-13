@@ -8,8 +8,7 @@ Stage 4 done: six recipes made from nothing (`SceneRecipes.cs`), the instruction
 README's Claude Code setup; the server is registered on this machine. Done. In `build_scene` the camera is placed
 after the motion (so it fits where things go), and the three-point rig's key is a distant light (a spot's pool would
 stay behind a moving subject).
-Stage 3 done: `build_scene`, `frame_items` and `check_shot` (`ShotTools.cs`, `Shot.cs`). Bounds are each object's
-box around its base shape (deformations aside), so overlap and ground checks are by boxes.
+Stage 3 done: `build_scene`, `frame_items` and `check_shot` (`ShotTools.cs`, `Shot.cs`). Its checks now use real shapes (MILESTONES.md, A.4).
 
 AVALightWave already serves agents its Layout-only MCP server: 64 tools and 12 recipes, live in the open window
 (`AVALightWave --mcp --attach`) or headless (`--mcp`). An agent can stage, light, animate and render, but only objects

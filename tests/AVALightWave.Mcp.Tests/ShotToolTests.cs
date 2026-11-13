@@ -121,4 +121,34 @@ public class ShotToolTests
         Assert.Contains(inside["problems"]!.AsArray(), p => (string?)p!["kind"] == "camera_inside" && (string?)p["item"] == "Away");
         Assert.False(b.Host.Layout.History.UndoLabel == "Agent: checked the shot");
     }
+
+    [Fact]
+    public async Task The_checks_use_real_shapes_not_boxes()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("make_object", new { shape = "ground" });
+        // A ring round a pole: their boxes overlap, their shapes don't.
+        await s.Client.Json("make_object", new { shape = "cylinder", name = "Pole", radius = 0.1, height = 2 });
+        await s.Client.Json("make_object", new { shape = "torus", name = "Ring", radius = 0.6, thickness = 0.08, origin = "center", position = new[] { 0.0, 1, 0 } });
+        // A ball turned 45°: its box dips below the ground, the ball doesn't.
+        await s.Client.Json("make_object", new { shape = "ball", name = "Turned", radius = 0.4, origin = "center", position = new[] { 3.0, 0.4, 0 }, rotation = new[] { 0.0, 45, 45 } });
+        // A ball resting on a box: touching, not passing through.
+        await s.Client.Json("make_object", new { shape = "box", name = "Block", size = new[] { 1.0, 1, 1 }, position = new[] { -3.0, 0, 0 } });
+        await s.Client.Json("make_object", new { shape = "ball", name = "Resting", radius = 0.3, position = new[] { -3.0, 1, 0 } });
+        // Two balls truly into each other.
+        await s.Client.Json("make_object", new { shape = "ball", name = "A", radius = 0.4, position = new[] { 0.0, 0, 3 } });
+        await s.Client.Json("make_object", new { shape = "ball", name = "B", radius = 0.4, position = new[] { 0.3, 0, 3 } });
+        await s.Client.Json("frame_items", new { from = "three_quarter" });
+        var r = await s.Client.Json("check_shot", new { every = 30 });
+        var kinds = r["problems"]!.AsArray().Select(p => (string?)p!["kind"] + ":" + (string?)p["item"]).ToList();
+        Assert.Contains("overlap:A and B", kinds);
+        Assert.DoesNotContain(kinds, k => k.Contains("Ring", StringComparison.Ordinal));
+        Assert.DoesNotContain(kinds, k => k.Contains("Resting", StringComparison.Ordinal));
+        Assert.DoesNotContain("below_ground:Turned", kinds);
+        // A ball sunk for real is still found.
+        await s.Client.Json("set_transform", new { item = "Turned", position = new[] { 3.0, 0.2, 0 }, key = false });
+        r = await s.Client.Json("check_shot", new { every = 30 });
+        Assert.Contains(r["problems"]!.AsArray(), p => (string?)p!["kind"] == "below_ground" && (string?)p["item"] == "Turned");
+    }
 }

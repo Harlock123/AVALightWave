@@ -9,7 +9,7 @@ change with its own tests and docs, after which the submodule is moved to it (AG
 
 ## Milestone A: conveniences and agent extras
 
-**Status:** stages 1 to 3 done (the wizards are `ShotWizards` in the Mcp project, running `build_scene`'s `RunPlan`) (bookmarks live in the engine's `Scene.Extras`, AVA Modeler 97cb1a3).
+**Status:** stages 1 to 4 done (the wizards are `ShotWizards` in the Mcp project, running `build_scene`'s `RunPlan`) (bookmarks live in the engine's `Scene.Extras`, AVA Modeler 97cb1a3).
 
 1. **Camera bookmarks (app).** Saved camera views, each with a name, position, rotation and zoom, kept in the scene.
    Recall puts the camera there, with a key if it's animated. They're in the Camera panel and on the
