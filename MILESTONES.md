@@ -10,7 +10,7 @@ change with its own tests and docs, after which the submodule is moved to it (AG
 ## Milestone A: conveniences and agent extras
 
 **Status:** done. The bookmarks, the cut (`avalightwave.shots`) and the style (`avalightwave.style`) are kept in the
-engine's `Scene.Extras` (AVA Modeler 97cb1a3). The wizards are `ShotWizards`, running `build_scene`'s `RunPlan`. (the wizards are `ShotWizards` in the Mcp project, running `build_scene`'s `RunPlan`) (bookmarks live in the engine's `Scene.Extras`, AVA Modeler 97cb1a3).
+engine's `Scene.Extras` (AVA Modeler 97cb1a3). The wizards are `ShotWizards` in the Mcp project, running `build_scene`'s `RunPlan`.
 
 1. **Camera bookmarks (app).** Saved camera views, each with a name, position, rotation and zoom, kept in the scene.
    Recall puts the camera there, with a key if it's animated. They're in the Camera panel and on the
@@ -106,6 +106,13 @@ later. The sun sky is `builtin:sun` (0c1a9fe), an analytic model, not Preetham's
    - The tool is `set_sky`.
 
 ## Milestone E: the live render view
+
+**Status:** done. Core's `ProgressiveRender` renders on a below-normal-priority thread with all but one core, a quarter
+size and a half size with one ray, then full size with 1, 4, 16… rays up to the pane's `RenderSamples` (16), denoised;
+the pane (`ViewportPane.ShowRender`, its view list's Render, F8) shows it letterboxed with its counter. It starts again
+when the scene's version, the frame, the camera or the pane's size has changed and then held still for 200 ms; only the
+latest start's passes are shown. The view beneath stays a Camera view and takes the mouse. Whether a pane renders isn't
+remembered between runs.
 
 1. **Progressive render pane (app).** Any view pane can show Render: the camera's view ray traced progressively, a
    coarse pass first, then refining to the full sample count. It starts again when the scene changes (the scene's

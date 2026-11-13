@@ -182,6 +182,44 @@ public class ViewLayoutTests
         Assert.Equal("Single", LightWaveOptions.Load(path).ViewLayout);
         again.Close();
     }
+
+    [AvaloniaFact]
+    public void The_live_render_shows_the_camera_refining_and_starts_again_when_the_scene_changes()
+    {
+        var w = Ui.Open();
+        var pane = w.Viewports.Active;
+        pane.RenderSamples = 4;
+        pane.RenderMaxSize = 160;
+        Ui.Key(w, Key.F8);
+        Assert.True(pane.Rendering);
+        Assert.Equal(LayoutViewMode.Camera, pane.View.Mode);
+        Assert.Equal(ViewportPane.RenderChoice, pane.Chooser.SelectedItem);
+        Ui.Until(() => pane.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes its passes.");
+        Assert.Contains("4 rays", pane.RenderCounter);
+        Assert.Equal(160, Math.Max(pane.RenderPicture!.PixelSize.Width, pane.RenderPicture.PixelSize.Height));
+
+        // A change to the scene starts it again.
+        var shown = new List<ProgressiveFrame>();
+        pane.RenderShown += shown.Add;
+        var light = w.Session.Scene.Items.OfType<LightItem>().First();
+        w.Session.SetVector(light, 0, new AVAModeler.Core.Vec3(1, 2, -3));
+        pane.Tick();
+        Assert.Empty(shown); // changed, but not yet held still
+        pane.Tick();
+        Ui.Until(() => shown.Any(f => f.Done), "It renders the changed scene.");
+        Assert.Equal(1, shown[0].Step);
+
+        // Another view type turns it off; the chooser turns it on again; hidden panes stop.
+        Ui.Key(w, Key.D2);
+        Assert.False(pane.Rendering);
+        Assert.Equal("Perspective", pane.Chooser.SelectedItem);
+        pane.Chooser.SelectedItem = ViewportPane.RenderChoice;
+        Ui.Pump();
+        Assert.True(pane.Rendering);
+        Ui.Key(w, Key.F8);
+        Assert.False(pane.Rendering);
+        Assert.Equal("Camera", pane.Chooser.SelectedItem);
+    }
 }
 
 /// <summary>The panes' OpenGL path in a headless window, where OpenGL can't start: it falls back to software cleanly.</summary>

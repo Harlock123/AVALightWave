@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **A live render view**: F8 (Render › Live Render View), or Render in a pane's view list, ray-traces the camera's view
+  in that pane as you work: a rough picture at once, refining to 16 denoised rays a pixel, with a counter, starting
+  again whenever the scene, the frame or the camera changes. It runs on a worker below normal priority.
 - **Worlds** for agents: `make_terrain` makes a landscape from noise (hills or mountains, weathered, on grass, rock and
   snow surfaces); `set_scatter` spreads copies of an object over another's faces (by count and seed, on one surface,
   thinned by a picture; the engine's scatter); `set_sky` gives the scene the engine's new sun sky (`builtin:sun`: the

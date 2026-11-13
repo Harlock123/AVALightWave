@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using AVAModeler.Layout;
 using AVAModeler.Layout.UI;
@@ -35,31 +37,42 @@ public sealed class ViewportPane : Panel
     /// <summary>Whether the view has been framed since the pane was first shown at a size.</summary>
     internal bool Fitted { get; set; }
 
+    /// <summary>The name the chooser gives the live ray-traced view (not a view type: the pane shows Camera beneath it).</summary>
+    public const string RenderChoice = "Render";
+
+    private readonly LayoutSession _session;
+
     public ViewportPane(LayoutSession session, int index)
     {
+        _session = session;
         Index = index;
         Name = $"Pane{index}";
         ClipToBounds = true;
         View = new SceneView(session);
         Chooser = new ComboBox
         {
-            ItemsSource = ViewportLayouts.ViewNames, SelectedItem = View.Mode.ToString(), FontSize = 11, MinHeight = 22, Padding = new Thickness(6, 1),
+            ItemsSource = ViewportLayouts.ViewNames.Append(RenderChoice).ToList(), SelectedItem = View.Mode.ToString(), FontSize = 11, MinHeight = 22, Padding = new Thickness(6, 1),
             HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(4), Opacity = 0.85,
             Name = $"PaneView{index}",
         };
-        ToolTip.SetTip(Chooser, "This view's type (1 to 6 change the active view's)");
+        ToolTip.SetTip(Chooser, "This view's type (1 to 6 change the active view's); Render ray-traces the camera's view as you work (F8)");
         Chooser.SelectionChanged += (_, _) =>
         {
-            if (_choosing || !Enum.TryParse<LayoutViewMode>(Chooser.SelectedItem as string, out var m)) return;
+            if (_choosing) return;
+            if (Chooser.SelectedItem as string == RenderChoice) { ShowRender(true); return; }
+            if (!Enum.TryParse<LayoutViewMode>(Chooser.SelectedItem as string, out var m)) return;
+            ShowRender(false);
             View.Mode = m;
         };
         View.ModeChanged += () =>
         {
-            _choosing = true;
-            Chooser.SelectedItem = View.Mode.ToString();
-            _choosing = false;
+            if (Rendering && View.Mode != LayoutViewMode.Camera) ShowRender(false);
+            ChooserFollows();
         };
+        _render = new RenderOverlay();
+        _render.IsVisible = false;
         Children.Add(View);
+        Children.Add(_render);
         Children.Add(Chooser);
         Children.Add(_outline);
     }
@@ -103,6 +116,159 @@ public sealed class ViewportPane : Panel
         if (Gl == null || Gl.Ready) return false;
         UseOpenGl(false);
         return true;
+    }
+
+    // ───────────────────────────── the live render ─────────────────────────────
+
+    private readonly RenderOverlay _render;
+    private ProgressiveRender? _progressive;
+    private DispatcherTimer? _watch;
+    private (Scene, int, double, int, int, CameraItem?, int, int) _rendered, _seen;
+
+    /// <summary>Rays a pixel the live render refines to (denoised on the way).</summary>
+    public int RenderSamples { get; set; } = 16;
+
+    /// <summary>The longest side the live render draws, in pixels.</summary>
+    public int RenderMaxSize { get; set; } = 1280;
+
+    /// <summary>Whether the pane shows the live render (the camera's view ray-traced, refining while nothing changes).</summary>
+    public bool Rendering { get; private set; }
+
+    /// <summary>The live render's picture and counter, for tests.</summary>
+    public Bitmap? RenderPicture => _render.Picture.Source as Bitmap;
+
+    public string RenderCounter => _render.Counter.Text ?? "";
+
+    /// <summary>Fires on the UI thread each time the live render shows a new pass.</summary>
+    public event Action<ProgressiveFrame>? RenderShown;
+
+    /// <summary>
+    /// Shows the camera's view ray-traced over the pane (its view goes to Camera beneath, still taking the mouse), a
+    /// quick rough pass first, refining to <see cref="RenderSamples"/> rays; it starts again when the scene, the frame,
+    /// the camera or the pane's size changes, and stops when turned off or when the pane isn't shown.
+    /// </summary>
+    public void ShowRender(bool on)
+    {
+        if (on == Rendering) return;
+        Rendering = on;
+        if (on && View.Mode != LayoutViewMode.Camera) View.Mode = LayoutViewMode.Camera;
+        _render.IsVisible = on;
+        if (on) StartWatching();
+        else StopRendering();
+        ChooserFollows();
+    }
+
+    private void ChooserFollows()
+    {
+        _choosing = true;
+        Chooser.SelectedItem = Rendering ? RenderChoice : View.Mode.ToString();
+        _choosing = false;
+    }
+
+    private void StartWatching()
+    {
+        if (!Rendering || VisualRoot == null) return;
+        _rendered = default;
+        _seen = default;
+        _watch ??= new DispatcherTimer(TimeSpan.FromMilliseconds(200), DispatcherPriority.Background, (_, _) => Check());
+        _watch.Start();
+        Check(force: true);
+    }
+
+    private void StopRendering()
+    {
+        _watch?.Stop();
+        _progressive?.Stop();
+    }
+
+    private (Scene, int, double, int, int, CameraItem?, int, int) Key()
+    {
+        var s = _session.Scene;
+        var cam = s.CurrentCamera;
+        var (w, h) = RenderSize(cam);
+        return (s, s.Version, _session.Frame, w, h, cam, cam?.Width ?? 0, cam?.Height ?? 0);
+    }
+
+    /// <summary>The live render's size: the pane's in pixels, at the camera's shape, no more than <see cref="RenderMaxSize"/>.</summary>
+    private (int W, int H) RenderSize(CameraItem? cam)
+    {
+        double scaling = (VisualRoot as TopLevel)?.RenderScaling ?? 1;
+        double pw = Math.Max(1, Bounds.Width * scaling), ph = Math.Max(1, Bounds.Height * scaling);
+        double aspect = cam != null && cam.Height > 0 ? cam.Width * cam.PixelAspect / cam.Height : 4.0 / 3;
+        double w = Math.Min(pw, ph * aspect);
+        w = Math.Min(w, aspect >= 1 ? RenderMaxSize : RenderMaxSize * aspect);
+        return (Math.Max(8, (int)Math.Round(w)), Math.Max(8, (int)Math.Round(w / aspect)));
+    }
+
+    /// <summary>One look at whether the live render must start again: the watch timer's tick (tests call it, as headless timers don't run).</summary>
+    public void Tick() => Check();
+
+    /// <summary>Starts again when what it shows has changed and then held still for a moment (so a drag doesn't start it every tick).</summary>
+    private void Check(bool force = false)
+    {
+        if (!Rendering) return;
+        var key = Key();
+        bool steady = key.Equals(_seen);
+        _seen = key;
+        if (!force && (key.Equals(_rendered) || !steady)) return;
+        _rendered = key;
+        if (_progressive == null)
+        {
+            _progressive = new ProgressiveRender();
+            _progressive.Updated += f => Dispatcher.UIThread.Post(() => Show(f));
+        }
+        _render.Counter.Text = "starting…";
+        _progressive.Start(_session.Scene.Copy(), _session.Frame, key.Item4, key.Item5, RenderSamples);
+    }
+
+    private void Show(ProgressiveFrame f)
+    {
+        if (!Rendering || _progressive == null || f.Generation != _progressive.Generation) return;
+        if (f.Image is { } img) _render.Picture.Source = ToBitmap(img);
+        _render.Counter.Text = f.Counter;
+        RenderShown?.Invoke(f);
+    }
+
+    private static WriteableBitmap ToBitmap(RenderImage img)
+    {
+        var bmp = new WriteableBitmap(new PixelSize(img.Width, img.Height), new Vector(96, 96), PixelFormat.Rgba8888, AlphaFormat.Opaque);
+        using var fb = bmp.Lock();
+        int row = img.Width * 4;
+        for (int y = 0; y < img.Height; y++)
+            System.Runtime.InteropServices.Marshal.Copy(img.Rgba, y * row, fb.Address + y * fb.RowBytes, row);
+        return bmp;
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+        if (Rendering) Dispatcher.UIThread.Post(StartWatching, DispatcherPriority.Background);
+    }
+
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromVisualTree(e);
+        StopRendering();
+    }
+
+    /// <summary>The live render over a pane: the picture on black, letterboxed, with its counter; the mouse goes through to the view.</summary>
+    private sealed class RenderOverlay : Panel
+    {
+        public Image Picture { get; } = new() { Stretch = Stretch.Uniform };
+        public TextBlock Counter { get; } = new()
+        {
+            FontSize = 11, Foreground = Brushes.White, Background = new SolidColorBrush(Color.FromArgb(150, 0, 0, 0)), Padding = new Thickness(6, 2),
+            HorizontalAlignment = HorizontalAlignment.Left, VerticalAlignment = VerticalAlignment.Bottom, Margin = new Thickness(4),
+        };
+
+        public RenderOverlay()
+        {
+            Background = Brushes.Black;
+            IsHitTestVisible = false;
+            RenderOptions.SetBitmapInterpolationMode(Picture, BitmapInterpolationMode.HighQuality);
+            Children.Add(Picture);
+            Children.Add(Counter);
+        }
     }
 
     /// <summary>Outlines the pane (the active one, when there's more than one).</summary>

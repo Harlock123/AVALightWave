@@ -55,8 +55,9 @@ python3 tools/make_icon.py                        # redraws the icon
     and what `LightWaveOptions.ViewLayout` and `LayoutViews` remember; `ViewMode` is the Single layout's view).
   - The milestones' Core files (`MILESTONES.md`): `CameraBookmarks.cs`, `ScenePackage.cs`, `ActionClips.cs` (clips in
     the scene's extras and .action files), `Characters.cs` (the rig and the walk, legs solved analytically every frame),
-    `Sound.cs` (`WavSound`, `ISoundOutput`, `SceneSound`, `LipSync`) and `Terrain.cs` (`TerrainSettings`, `Terrain`,
-    `SunPosition`). Extras keys are named `avalightwave.<what>`.
+    `Sound.cs` (`WavSound`, `ISoundOutput`, `SceneSound`, `LipSync`), `Terrain.cs` (`TerrainSettings`, `Terrain`,
+    `SunPosition`) and `ProgressiveRender.cs` (the live render: passes from rough to fine on a worker, only the latest
+    start's reported). Extras keys are named `avalightwave.<what>`.
   - `RenderFarm.cs` (the farm's folder protocol: `FarmJobSpec`, `FarmSubmit`, `FarmFolder` with Submit, Scan, Status,
     Nodes, Cancel, Remove, RemoveFinished, Move, NodeCommand and DefaultQueue, and `FarmFiles`: atomic writes, create-new
     claims, bounded reads, `RealPath`, `IsInside`) and `FarmNode.cs` (`FarmNode`, a node's loop; `FarmJobLoader`, which
@@ -81,8 +82,8 @@ python3 tools/make_icon.py                        # redraws the icon
   macros and OpenGL), `Panels.cs` (the panels; Objects, Bones, Lights and Camera are one `ItemsPanel` per edit mode
   around the engine's `ItemPropertiesPanel`, with `ItemExtras.cs` adding a light's shadow type, lens flare and
   volumetric beam and an object's dissolve; the Effects panel's compositing), `ImagesPanel.cs`, `ViewportLayout.cs`
-  (`ViewportLayout`, a Grid of four kept `ViewportPane`s, each a Panel holding a SceneView, its view list and an
-  outline, with the engine's `GlSurface` inserted beneath the view at `ViewportPane.SurfaceIndex` while it uses
+  (`ViewportLayout`, a Grid of four kept `ViewportPane`s, each a Panel holding a SceneView, its live render overlay
+  (`ShowRender`, `Tick` for tests: headless timers don't run), its view list and an outline, with the engine's `GlSurface` inserted beneath the view at `ViewportPane.SurfaceIndex` while it uses
   OpenGL), `PreviewWindow.cs`, `RenderQueueWindow.cs`, `Requesters.cs` (Clone Item and Load from Scene),
   `MotionOptions.cs`, `SceneEditor.cs`, `NumericRequester.cs`, `WindowAgents.cs` (the live MCP door and the chat's
   host), `Program.cs` (`--mcp` and `--render-node` before Avalonia starts).

@@ -160,6 +160,28 @@ public class ScreenshotTests
     }
 
     [AvaloniaFact]
+    public void The_live_render_in_the_quad_layout()
+    {
+        var (w, bench) = Showcase();
+        using var _ = bench;
+        w.Session.SetFrame(14);
+        w.ViewLayout = ViewportLayoutKind.Quad;
+        Ui.Pump();
+        w.Viewports.FitAll();
+        var perspective = w.Viewports.Panes[1].View;
+        perspective.Camera.Heading = 25;
+        perspective.Camera.Pitch = 20;
+        perspective.Camera.Distance /= 3;
+        var live = w.Viewports.Panes[3];
+        live.RenderSamples = 4;
+        w.Viewports.Activate(live);
+        Ui.Key(w, Avalonia.Input.Key.F8);
+        Ui.Until(() => live.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes.");
+        Shot(w, "live-render");
+        Assert.True(live.Rendering);
+    }
+
+    [AvaloniaFact]
     public void The_preview_window()
     {
         var (w, bench) = Showcase();

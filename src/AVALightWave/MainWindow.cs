@@ -679,7 +679,8 @@ public sealed class MainWindow : Window
                     Item("_Scene Editor", () => ShowBottom(BottomTab.SceneEditor)),
                 }).ToArray()),
                 Group("_Panels", _panels.Keys.Select(n => (object)Item("_" + n, () => ShowPanel(n))).ToArray()),
-                Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10"), "-",
+                Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10"),
+                    Item("_Live Render View", ToggleLiveRender, "F8"), "-",
                     Item("Make _Preview…", () => MakePreview(), "Shift+P"), Item("Render _Queue…", () => OpenRenderQueue()), "-",
                     Item("_Turntable…", () => OpenWizard(AVALightWave.Mcp.WizardLook.Turntable)), Item("Product _Shot…", () => OpenWizard(AVALightWave.Mcp.WizardLook.ProductShot))),
                 Group("_Hub", Item("_Edit in Modeler", () => { if (Session.Selected is ObjectItem o) _ = EditInModeler(o); else SetStatus("Choose an object to edit in AVA Modeler."); }, "Ctrl+E"),
@@ -807,7 +808,7 @@ public sealed class MainWindow : Window
         render. Items › Motion Options adds motion modifiers (lag, jitter, cycle, oscillate) and loads or saves .mot
         motion files. The Macros menu runs Lua scene macros, each one undo step.
 
-        Ctrl+Z undoes any change to the scene, an AI agent's included. F9 renders a frame, F10 an animation, F4 opens the
+        Ctrl+Z undoes any change to the scene, an AI agent's included. F8 ray-traces the active view live, F9 renders a frame, F10 an animation, F4 opens the
         AI Chat. Scenes save as LightWave .lws (objects by their files) or .avascene (everything).
         """;
 
@@ -819,7 +820,7 @@ public sealed class MainWindow : Window
         Ctrl+1 to Ctrl+4   one view, two side by side, two stacked, four      Shift+P Make Preview
         G graph editor, D dope sheet, E Scene Editor
         Ctrl+N new scene, Ctrl+O load, Ctrl+S save, Ctrl+Shift+S save as, Ctrl+E Edit in Modeler
-        Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo, F4 AI Chat, F9 render a frame, F10 render an animation
+        Ctrl+Z undo, Ctrl+Shift+Z or Ctrl+Y redo, F4 AI Chat, F8 live render view, F9 render a frame, F10 render an animation
         """;
 
     // ───────────────────────────── the keyboard ─────────────────────────────
@@ -837,6 +838,7 @@ public sealed class MainWindow : Window
         switch (key)
         {
             case Key.F4 when mods == KeyModifiers.None: ToggleChat(); return true;
+            case Key.F8: ToggleLiveRender(); return true;
             case Key.F9: Render(); return true;
             case Key.F10: RenderAnimation(); return true;
         }
@@ -1084,6 +1086,14 @@ public sealed class MainWindow : Window
 
     /// <summary>The active pane's view as it is now, to make a preview through (null for a Camera view: the scene camera).</summary>
     private AVAModeler.Rendering.ViewCamera? ActiveViewCamera() => View.Mode == LayoutViewMode.Camera ? null : View.Camera;
+
+    /// <summary>Turns the active pane's live render (the camera's view ray-traced as you work) on or off (F8).</summary>
+    public void ToggleLiveRender()
+    {
+        var pane = Viewports.Active;
+        pane.ShowRender(!pane.Rendering);
+        SetStatus(pane.Rendering ? "Live render: the camera's view, ray-traced and refining while nothing changes (F8 to stop)." : "Live render off.");
+    }
 
     public void Render()
     {
