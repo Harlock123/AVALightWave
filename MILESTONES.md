@@ -9,7 +9,7 @@ change with its own tests and docs, after which the submodule is moved to it (AG
 
 ## Milestone A: conveniences and agent extras
 
-**Status:** stage 1 done (the engine's `Scene.Extras`, AVA Modeler 97cb1a3, holds them).
+**Status:** stages 1 and 2 done (bookmarks live in the engine's `Scene.Extras`, AVA Modeler 97cb1a3).
 
 1. **Camera bookmarks (app).** Saved camera views, each with a name, position, rotation and zoom, kept in the scene.
    Recall puts the camera there, with a key if it's animated. They're in the Camera panel and on the

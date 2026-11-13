@@ -25,4 +25,22 @@ public class ConvenienceToolTests
         Assert.Contains("action must be", await s.Client.Fails("camera_bookmark", new { action = "jump" }));
         Assert.Contains("isn't a camera", await s.Client.Fails("camera_bookmark", new { action = "save", name = "X", camera = "Light" }));
     }
+
+    [Fact]
+    public async Task Package_scene_writes_inside_the_working_folder_and_changes_nothing()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("add_object", new { file = "objects/crate.lwo" });
+        await s.Client.Json("make_object", new { shape = "ball" });
+        int steps = b.Host.Layout.History.Count;
+        var r = await s.Client.Json("package_scene", new { folder = "packages/shot", zip = true });
+        Assert.Equal("packages/shot/shot.avascene", ((string)r["scene"]!).Replace('\\', '/'));
+        Assert.Contains(r["files"]!.AsArray(), f => ((string)f!).EndsWith("Ball.lwo", StringComparison.Ordinal));
+        Assert.True(File.Exists(b.Folder.File("packages/shot.zip")));
+        Assert.Equal(steps, b.Host.Layout.History.Count);
+        Assert.Contains("already has files", await s.Client.Fails("package_scene", new { folder = "packages/shot" }));
+        Assert.Contains("outside the working folder", await s.Client.Fails("package_scene", new { folder = "../away" }));
+        await s.Client.Json("package_scene", new { folder = "packages/shot", overwrite = true });
+    }
 }

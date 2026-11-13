@@ -298,6 +298,18 @@ public class ShellTests
         Assert.Contains("is at \"Start\"", w.Status);
     }
 
+    [AvaloniaFact]
+    public void Package_scene_gathers_the_scene_into_a_folder()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        w.Document.LoadObject(bench.Object("crate.lwo"));
+        var r = w.PackageScene(bench.Path, zip: false);
+        Assert.NotNull(r);
+        Assert.True(File.Exists(Path.Combine(bench.Path, "scene package", "scene.avascene")));
+        Assert.Contains("Packaged scene", w.Status);
+    }
+
     private static void Press(Button b)
     {
         b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

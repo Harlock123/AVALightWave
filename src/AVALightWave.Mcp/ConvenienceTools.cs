@@ -55,5 +55,27 @@ public sealed partial class LightWaveTools
         }, cancel);
     }
 
+    [McpServerTool(Name = "package_scene", Destructive = false)]
+    [Description("Package Scene: gathers the scene and everything it uses into one new folder in the working folder (and, with zip, a .zip of it beside), so it opens on another machine: the scene as .avascene with its meshes inside, each object's own file in objects/ (objects with none saved there as .lwo), and every image (textures, the environment, the Images panel's pictures and whole sequences, compositing) in images/, the scene's paths pointing at the copies. The open scene isn't changed (not an undo step). Returns the files made and anything that couldn't be found.")]
+    public Task<string> PackageScene(
+        [Description("The new folder, relative to the working folder, e.g. \"packages/robot\". It must be empty or new unless overwrite is true.")] string folder,
+        [Description("The scene file's name in it (default: the folder's name).")] string? name = null,
+        [Description("Also make a .zip of the folder beside it.")] bool zip = false,
+        [Description("Replace the folder (and zip) if they already exist.")] bool overwrite = false,
+        CancellationToken cancel = default) =>
+        Making("packaged the scene", (_, l, root) =>
+        {
+            var full = Inside(root, folder);
+            var r = ScenePackage.Make(l.Scene, full, name ?? Path.GetFileName(full.TrimEnd(Path.DirectorySeparatorChar)), root, zip, overwrite);
+            var o = new JsonObject
+            {
+                ["scene"] = Path.GetRelativePath(root, r.Scene), ["folder"] = Path.GetRelativePath(root, r.Folder),
+                ["files"] = new JsonArray([.. r.Files.Select(f => (JsonNode)Path.GetRelativePath(r.Folder, f))]),
+            };
+            if (r.Zip != null) o["zip"] = Path.GetRelativePath(root, r.Zip);
+            if (r.Warnings.Count > 0) o["warnings"] = new JsonArray([.. r.Warnings.Select(w => (JsonNode)w)]);
+            return o;
+        }, cancel, changes: false);
+
     private static bool Keyed(CameraItem cam) => cam.Channels.Take(6).Any(AVAModeler.Layout.Keying.IsAnimated);
 }

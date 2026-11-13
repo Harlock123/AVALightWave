@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Package Scene**: File › Package Scene (or as Zip) gathers the scene, its objects' files and every image it uses
+  into one folder that opens on another machine; agents have `package_scene`.
 - **Camera bookmarks**: the Camera panel saves the camera's view under a name and puts it back with a press (keyed
   when the camera is animated); they're kept in .avascene scenes, and agents have `camera_bookmark`. From AVA
   Modeler's engine, `Scene.Extras` keeps them with the scene.

@@ -633,7 +633,8 @@ public sealed class MainWindow : Window
                 Group("_File",
                     Item("_New Scene", () => _ = NewScene(), "Ctrl+N"), Item("_Load Scene…", () => _ = LoadSceneDialog(), "Ctrl+O"), _recentScenes,
                     Item("Load _from Scene…", () => _ = LoadFromSceneDialog()),
-                    Item("_Save Scene", () => _ = SaveScene(false), "Ctrl+S"), Item("Save Scene _As…", () => _ = SaveScene(true), "Ctrl+Shift+S"), "-",
+                    Item("_Save Scene", () => _ = SaveScene(false), "Ctrl+S"), Item("Save Scene _As…", () => _ = SaveScene(true), "Ctrl+Shift+S"),
+                    Item("_Package Scene…", () => _ = PackageSceneDialog(false)), Item("Package Scene as _Zip…", () => _ = PackageSceneDialog(true)), "-",
                     Item("Load _Object…", () => _ = LoadObjectDialog()), _recentObjects,
                     Item("_Replace Object…", () => { if (Session.Selected is ObjectItem o) _ = ReplaceObjectDialog(o); else SetStatus("Choose an object to replace."); }),
                     Item("Save Ob_ject", () => { if (Session.Selected is ObjectItem o) _ = SaveObject(o, false); else SetStatus("Choose an object to save."); }),
@@ -1147,6 +1148,32 @@ public sealed class MainWindow : Window
         {
             SetStatus($"Can't save: {e.Message}");
             if (!_forTests) await Dialogs.Message(this, "Can't save", e.Message);
+        }
+    }
+
+    /// <summary>File › Package Scene: asks for a folder, then gathers the scene and everything it uses into a folder in it (and a zip).</summary>
+    public async Task PackageSceneDialog(bool zip)
+    {
+        var folders = await StorageProvider.OpenFolderPickerAsync(new Avalonia.Platform.Storage.FolderPickerOpenOptions { Title = "Package the scene into a folder in…", AllowMultiple = false });
+        if (folders.Count == 0 || folders[0].TryGetLocalPath() is not { } parent) return;
+        PackageScene(parent, zip);
+    }
+
+    /// <summary>Packages the scene into a new folder (named after the scene) in <paramref name="parent"/>; says what it made.</summary>
+    public AVALightWave.Core.PackageResult? PackageScene(string parent, bool zip)
+    {
+        string name = Document.Path is { } p ? Path.GetFileNameWithoutExtension(p) : "scene";
+        string folder = Path.Combine(parent, name + " package");
+        try
+        {
+            var r = AVALightWave.Core.ScenePackage.Make(Session.Scene, folder, name, Document.Path is { } path ? Path.GetDirectoryName(path) : null, zip);
+            SetStatus($"Packaged {name} into {(r.Zip != null ? Path.GetFileName(r.Zip) : Path.GetFileName(folder))}: {r.Files.Count} files." + (r.Warnings.Count > 0 ? " " + string.Join(" ", r.Warnings) : ""));
+            return r;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        {
+            SetStatus($"Can't package the scene: {e.Message}");
+            return null;
         }
     }
 
