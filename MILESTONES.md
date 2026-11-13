@@ -36,7 +36,8 @@ engine's `Scene.Extras` (AVA Modeler 97cb1a3). The wizards are `ShotWizards`, ru
 
 ## Milestone B: physics and expressions
 
-**Status:** stages 1 and 2 done (rigid bodies in the engine, AVA Modeler ab77b73: sequential impulses with friction
+**Status:** done. Expressions are the engine's `ExpressionModifier` (AVA Modeler 6f0210e), in Motion Options. Rigid
+bodies (AVA Modeler ab77b73: sequential impulses with friction
 and bounce, a body's sample points against the other's distance function, sleeping; ties between faces broken
 toward the other body so equal boxes stack).
 

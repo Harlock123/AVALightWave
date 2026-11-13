@@ -12,7 +12,7 @@ namespace AVALightWave;
 
 /// <summary>
 /// Motion Options for the chosen item, as classic Layout's motion panel with its motion plug-ins: the item's motion
-/// modifiers in order (the engine's lag, jitter, cycle and oscillate), adding one of a kind with its settings, taking one
+/// modifiers in order (the engine's lag, jitter, cycle, oscillate and expression), adding one of a kind with its settings, taking one
 /// off, and loading or saving the item's motion as a LightWave motion file (.mot). Each change is one undo step through
 /// the engine's <see cref="LayoutSession.SetModifiers"/> and <see cref="LayoutSession.LoadMotion"/>.
 /// </summary>
@@ -21,7 +21,7 @@ public sealed class MotionOptions : Window
     private readonly MainWindow _window;
     private readonly SceneItem _item;
     private readonly ListBox _list = new() { MaxHeight = 140, FontSize = 11, Name = "ModifierList" };
-    private readonly ComboBox _kind = new() { ItemsSource = new[] { "Lag", "Jitter", "Cycle", "Oscillate" }, SelectedIndex = 0, Name = "ModifierKind", HorizontalAlignment = HorizontalAlignment.Stretch };
+    private readonly ComboBox _kind = new() { ItemsSource = new[] { "Lag", "Jitter", "Cycle", "Oscillate", "Expression" }, SelectedIndex = 0, Name = "ModifierKind", HorizontalAlignment = HorizontalAlignment.Stretch };
     private readonly StackPanel _fields = new() { Spacing = 3 };
     private readonly TextBlock _said = new() { Foreground = Look.ButtonOn, FontSize = 11, TextWrapping = TextWrapping.Wrap };
     private readonly Dictionary<string, Control> _inputs = [];
@@ -63,7 +63,7 @@ public sealed class MotionOptions : Window
     /// <summary>What the last action said.</summary>
     public string Said => _said.Text ?? "";
 
-    /// <summary>The kind of modifier Add makes (Lag, Jitter, Cycle, Oscillate).</summary>
+    /// <summary>The kind of modifier Add makes (Lag, Jitter, Cycle, Oscillate, Expression).</summary>
     public string Kind { get => (string)_kind.SelectedItem!; set => _kind.SelectedItem = value; }
 
     /// <summary>An input by its setting's name (for tests): a TextBox, ComboBox or CheckBox.</summary>
@@ -91,6 +91,7 @@ public sealed class MotionOptions : Window
         LagModifier l => $"Lag behind {l.Leader.Name} by {F(l.Delay)} frames, {F(l.Strength * 100)}%" + (l.Rotation ? ", with its rotation" : ""),
         JitterModifier j => $"Jitter ±{F(j.Position.X)}/{F(j.Position.Y)}/{F(j.Position.Z)} m, ±{F(j.Rotation.X)}/{F(j.Rotation.Y)}/{F(j.Rotation.Z)}°, {F(j.Frequency)} a second, seed {j.Seed}",
         CycleModifier c => $"Cycle its keys as {c.Driver.Name}'s {SceneChannels.MotionNames[(int)c.DriverChannel]} goes {F(c.Low)} to {F(c.High)}",
+        ExpressionModifier e => $"{SceneChannels.MotionNames[(int)e.Channel]} = {e.Formula}",
         OscillateModifier o => $"Oscillate {SceneChannels.MotionNames[(int)o.Channel]} ±{F(o.Amplitude)} every {F(o.Period)} frames from {F(o.Start)}" + (o.Damping > 0 ? $", damped {F(o.Damping)}" : ""),
         _ => m.Kind,
     };
@@ -136,6 +137,19 @@ public sealed class MotionOptions : Window
                 Box("Low", "From value", 0);
                 Box("High", "To value (one pass)", 360);
                 break;
+            case "Expression":
+            {
+                Choice("Channel", "Channel", SceneChannels.MotionNames, (int)Channel.PositionY);
+                var formula = new TextBox { Text = "value + sin(time * 4) * 0.1", FontSize = 11, Name = "ModifierFormula" };
+                _inputs["Formula"] = formula;
+                _fields.Children.Add(Row("Formula", formula));
+                _fields.Children.Add(new TextBlock
+                {
+                    Text = "frame, time, value (the channel before it), [Item.position.x], [Item.heading], [Item.world.y]…; sin cos (radians) deg rad sqrt abs min max clamp lerp if noise…",
+                    Foreground = Look.Text, FontSize = 10, TextWrapping = TextWrapping.Wrap,
+                });
+                break;
+            }
             default:
                 Choice("Channel", "Channel", SceneChannels.MotionNames, (int)Channel.PositionY);
                 Box("Amplitude", "Amplitude", 0.5);
@@ -184,6 +198,7 @@ public sealed class MotionOptions : Window
                     Frequency = Num("Frequency"), Seed = (int)Num("Seed"),
                 },
                 "Cycle" => new CycleModifier(ItemOf("Driver")) { DriverChannel = ChannelOf("DriverChannel"), Low = Num("Low"), High = Num("High") },
+                "Expression" => new ExpressionModifier { Channel = ChannelOf("Channel"), Formula = ((TextBox)_inputs["Formula"]).Text ?? "" }.Checked(),
                 _ => new OscillateModifier { Channel = ChannelOf("Channel"), Amplitude = Num("Amplitude"), Period = Num("Period"), Phase = Num("Phase"), Damping = Num("Damping"), Start = Num("Start") },
             };
             return Set([.. _item.Modifiers, m], $"added: {Describe(m)}");

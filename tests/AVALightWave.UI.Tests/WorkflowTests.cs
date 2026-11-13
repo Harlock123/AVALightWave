@@ -192,6 +192,17 @@ public class WorkflowTests
         Assert.IsType<OscillateModifier>(Assert.Single(crate.Modifiers));
         w.Undo();
         Assert.Equal(2, crate.Modifiers.Count);
+        // An expression: the crate's bank follows the leader's x.
+        o.Kind = "Expression";
+        Ui.Pump();
+        ((Avalonia.Controls.ComboBox)o.Input("Channel")).SelectedIndex = (int)Channel.Bank;
+        ((Avalonia.Controls.TextBox)o.Input("Formula")).Text = "[Leader.position.x] * 10 +";
+        Assert.False(o.Add());
+        Assert.Contains("ends too soon", o.Said);
+        ((Avalonia.Controls.TextBox)o.Input("Formula")).Text = "[Leader.position.x] * 10";
+        Assert.True(o.Add());
+        Assert.Equal(leader.PositionAt(21).X * 10, crate.MotionRotationAt(21).Z, 6);
+        Assert.Contains("bank = [Leader.position.x] * 10", MotionOptions.Describe(crate.Modifiers[^1]));
         o.Close();
 
         // A motion saved from the leader loads onto the crate.

@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Expressions** (from the engine): Motion Options' Expression and `add_motion_modifier` kind `expression` set a
+  channel from a formula of the frame, time and other items' channels, e.g. a wheel turning as its car rolls.
 - **Rigid-body physics** (from the engine): objects fall, bounce, slide, tumble and stack, set in the Objects panel or
   with `set_rigid_body`; `simulate` reports it, Bake Simulation and `bake_simulation` turn it into keys; a
   `domino_physics` recipe topples a curving row.
