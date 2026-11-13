@@ -7,8 +7,9 @@ namespace AVALightWave.Mcp;
 
 /// <summary>
 /// AVALightWave's MCP server: the engine's scene tools only (<see cref="ToolGroups.Scene"/>: staging, lighting,
-/// animating, deforming and rendering; no modeling, which is AVA Modeler's), AVALightWave's own tools
-/// (<see cref="LightWaveTools"/>: replacing and saving objects, and the hub) and recipes (<see cref="LightWaveRecipes"/>,
+/// animating, deforming and rendering; the engine's modeling tools aren't served as such), AVALightWave's own tools
+/// (<see cref="LightWaveTools"/>: making objects with the engine's modeling calls on documents of their own, replacing
+/// and saving objects, and the hub) and recipes (<see cref="LightWaveRecipes"/>,
 /// with the engine's three-point lighting), with instructions written for a standalone Layout. The same profile serves
 /// <c>AVALightWave --mcp</c> headless, the open window's live pipe, and the AI Chat.
 /// </summary>
@@ -20,12 +21,13 @@ public static class LightWaveServer
     public static readonly IReadOnlySet<string> EngineRecipes = new HashSet<string> { "three_point_lighting" };
 
     public const string Instructions = """
-        AVALightWave is a standalone scene, animation and render program in the spirit of classic LightWave Layout (versions 4 and 5). You stage objects loaded from files, light them, animate them and ray-trace them, with the same tools a person uses in its panels. It doesn't model: objects come from files (LightWave .lwo, .obj, .geo, .glb/.gltf, .stl, .3mf) in the working folder, and the person can send one to AVA Modeler, the companion modeler, to change its shape (edit_in_modeler, in the open window), after which its saves update it here.
+        AVALightWave is a standalone scene, animation and render program in the spirit of classic LightWave Layout (versions 4 and 5). You make or load objects, light them, animate them and ray-trace them, with the same tools a person uses in its panels. Objects come from files (LightWave .lwo, .obj, .geo, .glb/.gltf, .stl, .3mf) in the working folder, or are made in the scene: make_object for ready-made shapes, build_object for anything else from the engine's modeling tools (AVA Modeler's). The person can also send an object to AVA Modeler, the companion modeler (edit_in_modeler, in the open window), after which its saves update it here.
 
         Conventions (they matter):
         - Units are metres. The space is left-handed, as LightWave's: +X right, +Y up, +Z away from the viewer in the Front view. Items have position [x, y, z], rotation [heading, pitch, bank] in degrees and scale. Heading turns about +Y (90 faces +X), then pitch about the turned X axis (positive looks down), then bank about the turned Z axis. Cameras look along their +Z axis with +Y up; distant and spot lights shine along their +Z; point lights shine every way. look_at aims anything at a point or item.
         - Colours are [r, g, b], whole numbers from 0 to 255, everywhere: lights, ambient, backdrop and fog. Intensity 1 is 100%.
         - A camera's lens is LightWave's zoom factor: zoom = 1 / tan(vertical field of view / 2); 3.2 (the default) is 34.7 degrees high. A spot's cone_angle is its half-angle; range is metres to fade out (0: no falloff).
+        - Making objects: make_object makes a box, ball, cylinder, cone, disc, torus, ground (a floor slab with its top at y = 0), steps or extruded text, with a surface of its own named after it (colour, specular, glossiness, reflection, transparency, luminosity); its origin is at the middle of its bottom by default, so at y = 0 it stands on the ground and scaling squashes it onto the floor. build_object builds anything else from steps, each one of the engine's modeling calls on an object of its own: {"tool": "Lathe", "params": {...}} runs a modeling tool (list_modeling_tools and describe_modeling_tool give them and their parameters), {"call": "set_surface", "args": {...}} makes another call (add_points, add_polygons, set_layers, the select_ calls, set_surface, set_texture, set_procedural, make_uvs, run_lua, check_mesh…). edit_object runs the same steps on an object already in the scene, keeping its motion. set_object_surface changes an object's look (get_object_surfaces lists its surfaces). Each is one undo step; made objects have no file until save_object (.avascene keeps them inside the scene).
         - Objects: add_object loads a file from the working folder into the scene (give file; layer takes one of its layers). An object keeps its own coordinates; position, rotation and scale place it. replace_object swaps an object's geometry for another file's, keeping its motion, parent and bones (classic Layout's Replace Object). save_object writes an object's geometry to a file. get_scene gives every object's world bounds: use them to size lights and frame the camera.
         - Frames run from the scene's first to last frame, 1 to 60 at 30 frames a second by default (set_scene changes them). Channels are keyed at frames and interpolated by TCB splines. set_transform and look_at key when key is true (Auto Key, on unless the person turned it off) and otherwise just set values; the first key on a channel replaces its constant, so key the start frame first, then later frames. get_keys shows what is keyed; shift_keys and scale_keys retime keys as the dope sheet does.
         - The scene has one undo history, shared with the person: each call that changes it is one step ("Agent: …"), undo_scene and redo_scene step through it, and the person's Ctrl+Z undoes your steps too. new_scene and open_scene clear it. A call that fails changes nothing and leaves no step.
@@ -38,7 +40,7 @@ public static class LightWaveServer
         - Workflow: clone_item copies an item (offset in place and time, as Clone Item does), load_from_scene merges another scene's items, save_motion and load_motion carry an item's keys in LightWave .mot files, run_macro runs a Lua scene macro as one step, and make_preview makes a quick flipbook (the view's drawing, not ray traced) to check motion before rendering.
         - Long renders: queue_render sends the scene as a job to a render queue folder, which render nodes work frame by frame (the window's own, and "AVALightWave --render-node <folder>" processes on this or other machines); render_queue_status shows each job's frames done and the nodes. Use it for many or large frames instead of render_animation.
 
-        A good way to make a scene: get_scene; add_object the file; get_scene again for its bounds; light it (the three_point_lighting recipe, or add_light and look_at); place the camera with set_transform and look_at; render_scene_view (camera, then top) to check placement; key the motion at the first and later frames; check an in-between frame with get_scene; render_scene a frame small and look at it; then render_animation (with movie "mp4" or "gif" if ffmpeg is installed) and save_scene (.avascene keeps everything; .lws for LightWave, with objects referenced by their files). export_scene writes glTF.
+        A good way to make a scene: get_scene; make_object, build_object or add_object; get_scene again for its bounds; light it (the three_point_lighting recipe, or add_light and look_at); place the camera with set_transform and look_at; render_scene_view (camera, then top) to check placement; key the motion at the first and later frames; check an in-between frame with get_scene; render_scene a frame small and look at it; then render_animation (with movie "mp4" or "gif" if ffmpeg is installed) and save_scene (.avascene keeps everything; .lws for LightWave, with objects referenced by their files). export_scene writes glTF.
 
         The server's prompts are saved recipes for scene work (staging an object, a turntable, a camera fly-by on a path, a sweeping spotlight, rendering on a farm, a staggered row of clones, volumetric beams with a flare, compositing over a picture, rigging from skelegons, motion modifiers and motion files, a morph envelope and a macro, three-point lighting): step-by-step plans with the exact tool calls, to follow or adapt.
         """;
@@ -108,7 +110,7 @@ public static class LightWaveServer
         AVALightWave --mcp [--attach] [--root FOLDER]
 
           --mcp          Serve the Model Context Protocol on stdin and stdout for an AI agent, with no window: the
-                         scene, lighting, animation and render tools (no modeling: that's AVA Modeler's).
+                         scene, object-making, lighting, animation and render tools.
           --attach       Drive the AVALightWave that's open on this desktop (with Options › Allow AI Agents on),
                          instead of a scene of the server's own.
           --root FOLDER  The working folder that object, scene and image paths start from, and that loading and

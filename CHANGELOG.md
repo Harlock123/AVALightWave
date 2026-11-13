@@ -13,6 +13,13 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Agents make objects in the scene** (the first stage of `AI_SCENES.md`, scenes from a description). `make_object`
+  makes a box, ball, cylinder, cone, disc, torus, ground, steps or extruded text with a surface of its own, standing on
+  its base; `build_object` builds anything else from the engine's modeling calls (AVA Modeler's tools, as steps, on an
+  object of its own); `edit_object` changes an object in the scene the same way, keeping its motion;
+  `set_object_surface` and `get_object_surfaces` change and list its looks; `list_modeling_tools` and
+  `describe_modeling_tool` say what the steps can use. Each is one undo step, and a failing step changes nothing. The
+  AI Chat can make objects too.
 - **What the AI Chat uses**, shown as it's used (from the engine): a line under the input with the chat's tokens and
   estimated cost, updated while a request runs; a tag after each turn with its requests, tokens, pictures and
   estimate; and in Setup… the prices (changeable), today's and this month's totals with Reset, and a budget that

@@ -17,7 +17,7 @@ namespace AVALightWave.Mcp;
 /// scene only through <see cref="IModelerHost.RunSceneAsync{T}"/> and the session, as the engine's tools do, so each
 /// change is one undo step ("Agent: …") the person's Ctrl+Z takes back, and a call that fails changes nothing.
 /// </summary>
-public sealed class LightWaveTools(IModelerHost host, ILightWaveApp? app)
+public sealed partial class LightWaveTools(IModelerHost host, ILightWaveApp? app)
 {
     [McpServerTool(Name = "replace_object", Destructive = true)]
     [Description("Replace Object, as classic Layout had it: the object item takes another file's geometry and surfaces (from the working folder: .lwo, .lw, .obj, .geo, .glb, .gltf, .stl or .3mf), keeping its name, position, rotation, scale, keys, parent, bones and settings. An item named after its old file takes the new file's name. One undo step. Returns the item with its point and polygon counts.")]

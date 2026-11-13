@@ -16,7 +16,7 @@ namespace AVALightWave.Mcp.Tests;
 /// </summary>
 public class ServerTests
 {
-    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro", "make_preview"];
+    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro", "make_preview", "list_modeling_tools", "describe_modeling_tool", "make_object", "build_object", "edit_object", "set_object_surface", "get_object_surfaces"];
 
     [Fact]
     public async Task It_serves_the_scene_tools_and_its_own_and_no_modeling_tool()
@@ -29,7 +29,7 @@ public class ServerTests
         Assert.Equal("AVALightWave", s.Client.ServerInfo!.Name);
         Assert.Equal("0.2.0", s.Client.ServerInfo.Version);
         Assert.StartsWith("AVALightWave is a standalone scene", s.Client.ServerInstructions);
-        Assert.DoesNotContain("run_tool", s.Client.ServerInstructions);
+        Assert.Contains("build_object", s.Client.ServerInstructions);
         // Descriptions speak of files, not of a Modeler object it doesn't have.
         Assert.StartsWith("Loads an object file", tools.Single(t => t.Name == "add_object").Description);
         Assert.DoesNotContain("Modeler's unsaved", tools.Single(t => t.Name == "save_scene").Description);
@@ -147,7 +147,7 @@ public class ServerTests
         var help = new StringWriter();
         Assert.Equal(0, await McpCommandLine.RunAsync(["--mcp", "--help"], _ => ToolRegistry.Create(), Stream.Null, Stream.Null, help, LightWaveServer.Profile(), Cancel));
         Assert.Contains("AVALightWave --mcp", help.ToString());
-        Assert.Contains("no modeling", help.ToString());
+        Assert.Contains("object-making", help.ToString());
     }
 
     [Fact]

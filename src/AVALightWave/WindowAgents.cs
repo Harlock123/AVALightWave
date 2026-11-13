@@ -23,7 +23,7 @@ internal sealed class WindowAgents(SceneDocument document, Func<ObjectItem, Task
 
     /// <summary>
     /// The engine's command API wants a document; AVALightWave has no Modeler object, so it's an empty one nobody sees
-    /// (the profile serves no modeling tools, and add_object asks for a file).
+    /// (the profile serves none of its modeling tools, add_object asks for a file, and making objects uses documents of its own).
     /// </summary>
     public Commands Commands { get; } = new(new Document());
 
