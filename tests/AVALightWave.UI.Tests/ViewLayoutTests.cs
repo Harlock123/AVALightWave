@@ -194,7 +194,7 @@ public class ViewLayoutTests
         Assert.True(pane.Rendering);
         Assert.Equal(LayoutViewMode.Camera, pane.View.Mode);
         Assert.Equal(ViewportPane.RenderChoice, pane.Chooser.SelectedItem);
-        Ui.Until(() => pane.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes its passes.");
+        Ui.Until(() => pane.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes its passes.", TimeSpan.FromMinutes(2));
         Assert.Contains("4 rays", pane.RenderCounter);
         Assert.Equal(160, Math.Max(pane.RenderPicture!.PixelSize.Width, pane.RenderPicture.PixelSize.Height));
 
@@ -206,7 +206,7 @@ public class ViewLayoutTests
         pane.Tick();
         Assert.Empty(shown); // changed, but not yet held still
         pane.Tick();
-        Ui.Until(() => shown.Any(f => f.Done), "It renders the changed scene.");
+        Ui.Until(() => shown.Any(f => f.Done), "It renders the changed scene.", TimeSpan.FromMinutes(2));
         Assert.Equal(1, shown[0].Step);
 
         // Another view type turns it off; the chooser turns it on again; hidden panes stop.

@@ -41,6 +41,14 @@ internal static class Ui
         Assert.True(done(), what);
     }
 
+    /// <summary>Pumps until something is true, for up to <paramref name="limit"/> (a ray-traced frame is slow on a two-core CI runner).</summary>
+    public static void Until(Func<bool> done, string what, TimeSpan limit)
+    {
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        while (!done() && clock.Elapsed < limit) { Pump(); Thread.Sleep(1); }
+        Assert.True(done(), what);
+    }
+
     public static Point In(Window w, Control c, Point p) => c.TranslatePoint(p, w)!.Value;
 
     public static void Click(Window w, Point at, MouseButton button = MouseButton.Left)

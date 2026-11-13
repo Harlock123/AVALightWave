@@ -176,7 +176,7 @@ public class ScreenshotTests
         live.RenderSamples = 4;
         w.Viewports.Activate(live);
         Ui.Key(w, Avalonia.Input.Key.F8);
-        Ui.Until(() => live.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes.");
+        Ui.Until(() => live.RenderCounter.StartsWith("done", StringComparison.Ordinal), "The live render finishes.", TimeSpan.FromMinutes(2));
         Shot(w, "live-render");
         Assert.True(live.Rendering);
     }
