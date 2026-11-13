@@ -36,6 +36,10 @@ engine's `Scene.Extras` (AVA Modeler 97cb1a3). The wizards are `ShotWizards`, ru
 
 ## Milestone B: physics and expressions
 
+**Status:** stages 1 and 2 done (rigid bodies in the engine, AVA Modeler ab77b73: sequential impulses with friction
+and bounce, a body's sample points against the other's distance function, sleeping; ties between faces broken
+toward the other body so equal boxes stack).
+
 1. **Rigid bodies (engine).** Objects can be dynamic or static, with mass, bounce, friction and a shape (box, sphere,
    or the object's own convex hull). A fixed-step simulation from the first frame handles gravity, collisions and
    stacking, cached like soft bodies. The ray tracer and the views see it.

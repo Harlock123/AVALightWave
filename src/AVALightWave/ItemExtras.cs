@@ -120,6 +120,44 @@ public sealed partial class ItemsPanel
         }
     }
 
+    /// <summary>An object's rigid body: on or off, dynamic or static, its shape, mass, bounce and friction, and Bake Simulation.</summary>
+    private void RigidBody(ObjectItem o, ItemPropertiesPanel panel)
+    {
+        var s = Doc.Session;
+        panel.Children.Add(Section("Rigid body"));
+        void Set(string label, Func<RigidBodySettings, RigidBodySettings> change) => Try(() =>
+        {
+            var next = change(o.RigidBody ?? new RigidBodySettings()).Checked();
+            s.Edit(label, () => { o.RigidBody = next; s.Scene.Notify(); });
+        });
+        panel.Children.Add(Check("Rigid body (falls, bounces, stacks)", o.RigidBody != null, on => Try(() =>
+            s.Edit(on ? "Make Rigid Body" : "Remove Rigid Body", () => { o.RigidBody = on ? new RigidBodySettings() : null; s.Scene.Notify(); })), "RigidBody"));
+        if (o.RigidBody is not { } r) return;
+        var kind = new ComboBox { ItemsSource = new[] { "Dynamic (simulated)", "Static (keyed, pushes)" }, SelectedIndex = (int)r.Kind, FontSize = 11, Name = "RigidKind" };
+        kind.SelectionChanged += (_, _) => { if (kind.SelectedIndex >= 0 && kind.SelectedIndex != (int)r.Kind) Set("Rigid Body Kind", x => x with { Kind = (RigidBodyKind)kind.SelectedIndex }); };
+        panel.Children.Add(Pair("Kind", kind));
+        var shape = new ComboBox { ItemsSource = new[] { "Box", "Sphere", "Hull" }, SelectedIndex = (int)r.Shape, FontSize = 11, Name = "RigidShape" };
+        shape.SelectionChanged += (_, _) => { if (shape.SelectedIndex >= 0 && shape.SelectedIndex != (int)r.Shape) Set("Rigid Body Shape", x => x with { Shape = (CollisionShape)shape.SelectedIndex }); };
+        panel.Children.Add(Pair("Shape", shape));
+        if (r.Kind == RigidBodyKind.Dynamic)
+        {
+            panel.Children.Add(Pair("Mass (kg)", NumberBox(r.Mass, v => Set("Rigid Body Mass", x => x with { Mass = v }), "RigidMass")));
+            panel.Children.Add(Pair("Bounce (0–1)", NumberBox(r.Bounce, v => Set("Rigid Body Bounce", x => x with { Bounce = v }), "RigidBounce")));
+        }
+        panel.Children.Add(Pair("Friction (0–2)", NumberBox(r.Friction, v => Set("Rigid Body Friction", x => x with { Friction = v }), "RigidFriction")));
+        if (r.Kind == RigidBodyKind.Dynamic)
+        {
+            var bake = Look.MakeButton("Bake Simulation", () => Try(() =>
+            {
+                var bodies = s.Scene.Objects.Where(x => x.RigidBody is { Kind: RigidBodyKind.Dynamic }).ToList();
+                s.Edit("Bake Simulation", () => AVALightWave.Mcp.LightWaveTools.BakeBodies(s.Scene, bodies, 1, s.Scene.LastFrame));
+                Window.SetStatus($"Baked {bodies.Count} rigid bod{(bodies.Count == 1 ? "y" : "ies")} into keys.");
+            }), "Turn every dynamic body's simulated motion into keys (they stop being rigid bodies)");
+            bake.Name = "BakeSimulation";
+            panel.Children.Add(bake);
+        }
+    }
+
     private void Dissolve(ObjectItem o, ItemPropertiesPanel panel)
     {
         var s = Doc.Session;

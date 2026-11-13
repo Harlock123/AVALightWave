@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Rigid-body physics** (from the engine): objects fall, bounce, slide, tumble and stack, set in the Objects panel or
+  with `set_rigid_body`; `simulate` reports it, Bake Simulation and `bake_simulation` turn it into keys; a
+  `domino_physics` recipe topples a curving row.
 - **Style presets** for agents: `apply_style` (and a plan's `style`) gives a scene a look: noir, product commercial,
   cartoon, golden hour or sci-fi, with their own light rigs, surface treatment, lens and easing.
 - **Shot lists** for agents: `build_shots` lays out a cut of shots, each through its own camera, and

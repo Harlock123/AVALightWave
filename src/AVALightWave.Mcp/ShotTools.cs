@@ -26,7 +26,7 @@ public sealed partial class LightWaveTools
     public static readonly IReadOnlyList<string> PlanOwnCalls =
     [
         "make_object", "build_object", "edit_object", "set_object_surface", "clone_item", "add_morph_target", "replace_object",
-        "animate", "camera_move", "frame_items",
+        "animate", "camera_move", "frame_items", "set_rigid_body", "apply_style",
     ];
 
     public static readonly IReadOnlyList<string> Rigs = ["three_point", "sun_and_sky", "studio", "night", "noir", "golden_hour", "sci_fi", "cartoon"];

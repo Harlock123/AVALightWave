@@ -331,6 +331,29 @@ public class ShellTests
         wizard.Close();
     }
 
+    [AvaloniaFact]
+    public void The_objects_panel_makes_a_rigid_body_and_bakes_it()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        var ball = w.Document.LoadObject(bench.Object("ball.lwo"));
+        ball[AVAModeler.Scene.Channel.PositionY].SetConstant(2);
+        w.Session.Select(ball);
+        w.ShowPanel("Objects");
+        Ui.Pump();
+        Ui.Find<CheckBox>(w.CurrentPanel!, "RigidBody").IsChecked = true;
+        Ui.Pump();
+        Assert.NotNull(ball.RigidBody);
+        Assert.Equal("Make Rigid Body", w.Session.History.UndoLabel);
+        ((ItemsPanel)w.CurrentPanel!).Reshow();
+        Ui.Pump();
+        Assert.True(ball.WorldPosition(30).Y < 1.5); // falling
+        Press(Ui.Find<Button>(w.CurrentPanel!, "BakeSimulation"));
+        Assert.Null(ball.RigidBody);
+        Assert.Equal("Bake Simulation", w.Session.History.UndoLabel);
+        Assert.True(ball.Channels[1].Keys.Count > 30);
+    }
+
     private static void Press(Button b)
     {
         b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

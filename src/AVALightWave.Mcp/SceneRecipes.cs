@@ -183,6 +183,45 @@ public static partial class LightWaveRecipes
             "The fall is keyed, not simulated: ease_in makes each one speed up as it tips. A longer run curves if each domino's heading turns a little (turn by [heading, pitch, bank]) and its position follows a curve.");
     }
 
+    [McpServerPrompt(Name = "domino_physics", Title = "Falling dominoes, simulated")]
+    [Description("A curving row of dominoes made in the scene topples by rigid-body physics: the ground is a static body, each domino a dynamic box, and the first is given a push (a spin); simulate checks every one fell, and the run is rendered. bake_simulation would turn it into keys.")]
+    public static string DominoPhysics(
+        [Description("How many dominoes, 3 to 60 (default 14).")] string? count = null,
+        [Description("Frames, 30 to 600 (default 120).")] string? frames = null,
+        [Description("Width of the contact sheet's frames (default 160).")] string? width = null)
+    {
+        int k = Recipes.Whole(count, 14, "count", 3, 60);
+        int n = Recipes.Whole(frames, 120, "frames", 30, ModelerTools.MaxAnimationFrames);
+        int w = Recipes.Whole(width, 160, "width", 16, ModelerTools.MaxAnimationSize);
+        const double spacing = 0.3, curve = 4;
+        var objects = new List<object> { new { shape = "ground", size = new[] { 30.0, 30 }, color = new[] { 120, 110, 95 } } };
+        var steps = new List<object> { new { call = "set_rigid_body", args = new { @object = "Ground", kind = "static", shape = "box", friction = 0.8 } } };
+        for (int i = 0; i < k; i++)
+        {
+            string name = $"Domino {i + 1}";
+            // Along a gentle arc, each turned to face along it.
+            double a = i * spacing / curve, x = curve * (1 - Math.Cos(a)), z = curve * Math.Sin(a);
+            objects.Add(new { shape = "box", name, size = new[] { 0.25, 0.5, 0.06 }, color = i % 2 == 0 ? new[] { 240, 240, 235 } : new[] { 30, 30, 34 }, position = V(x, 0, z), rotation = V(R(a * 180 / Math.PI), 0, 0) });
+            steps.Add(new { call = "set_rigid_body", args = new { @object = name, shape = "box", bounce = 0.0, friction = 0.6, spin = i == 0 ? V(150, 0, 0) : null } });
+        }
+        var recipe = new Recipe($"{k} dominoes on an arc topple by physics over {n} frames: the first gets a push and knocks the rest down, each falling where the one before strikes it.");
+        recipe.Step("Start a new scene.", "new_scene", new { });
+        recipe.Step("The run in one plan: the ground made a static rigid body (it holds the dominoes up), each domino a dynamic box (bounce 0 so they settle, friction so they don't skate), the first given a spin about X, which tips its top toward the next; a sun and sky; the camera fitted over the whole run.", "build_scene", new
+        {
+            plan = new
+            {
+                settings = new { first_frame = 1, last_frame = n },
+                objects,
+                lights = "sun_and_sky",
+                steps,
+                camera = new { items = new[] { "all" }, from = V(1, 0.7, -0.6), margin = 0.1 },
+            },
+        });
+        recipe.Step("Run the simulation and read where each domino ends up (every one should have fallen: an end rotation's pitch or bank far from 0).", "simulate", new { });
+        return Finish(recipe, "physics", n, w, n / 2,
+            "To refine by hand, bake_simulation turns the fall into ordinary keys. For a longer run, more dominoes and frames; for a run that stops, leave a gap wider than a domino's height.");
+    }
+
     [McpServerPrompt(Name = "rocket_launch", Title = "Rocket launch with smoke")]
     [Description("Builds a rocket from a body, a nose cone and fins, stands it on a pad, shakes it, then launches it with a plume of smoke while the camera looks up and follows: build_object, particles and motion in one plan.")]
     public static string RocketLaunch(

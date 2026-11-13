@@ -230,6 +230,7 @@ public sealed partial class ItemsPanel : LayoutPanel
         panel.Children.Add(new TextBlock { Text = "File", FontWeight = FontWeight.Bold, Foreground = Look.Text, Margin = new Thickness(0, 8, 0, 0) });
         panel.Children.Add(Note((file != null ? Path.GetFileName(file) : "none yet") + (o.Document is { Modified: true } ? " (unsaved changes)" : "")));
         Dissolve(o, panel);
+        RigidBody(o, panel);
         Morphs(o, panel);
     }
 

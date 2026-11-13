@@ -16,7 +16,7 @@ namespace AVALightWave.Mcp.Tests;
 /// </summary>
 public class ServerTests
 {
-    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro", "make_preview", "animate", "camera_move", "camera_bookmark", "package_scene", "review_shot", "apply_style", "build_shots", "render_shots", "build_scene", "frame_items", "check_shot", "list_modeling_tools", "describe_modeling_tool", "make_object", "build_object", "edit_object", "set_object_surface", "get_object_surfaces"];
+    internal static readonly string[] Own = ["replace_object", "save_object", "edit_in_modeler", "hub_status", "clone_item", "load_from_scene", "add_morph_target", "load_motion", "save_motion", "queue_render", "render_queue_status", "run_macro", "make_preview", "animate", "camera_move", "camera_bookmark", "package_scene", "review_shot", "apply_style", "set_rigid_body", "simulate", "bake_simulation", "build_shots", "render_shots", "build_scene", "frame_items", "check_shot", "list_modeling_tools", "describe_modeling_tool", "make_object", "build_object", "edit_object", "set_object_surface", "get_object_surfaces"];
 
     [Fact]
     public async Task It_serves_the_scene_tools_and_its_own_and_no_modeling_tool()
@@ -36,7 +36,7 @@ public class ServerTests
         Assert.Contains("save_object", tools.Single(t => t.Name == "save_scene").Description);
         Assert.Contains("no Modeler layers", tools.Single(t => t.Name == "set_morph").Description);
         var prompts = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Select(p => p.Name).ToList();
-        Assert.Equal(["ball_from_nothing", "camera_flyby", "clone_stagger", "composite_shot", "dancing_shapes", "domino_run", "follow_and_jitter", "light_beams", "light_sweep", "morph_and_macro", "object_turntable", "product_reveal", "render_on_farm", "rig_from_skelegons", "rocket_launch", "solar_system", "stage_object", "three_point_lighting"], prompts.Order());
+        Assert.Equal(["ball_from_nothing", "camera_flyby", "clone_stagger", "composite_shot", "dancing_shapes", "domino_physics", "domino_run", "follow_and_jitter", "light_beams", "light_sweep", "morph_and_macro", "object_turntable", "product_reveal", "render_on_farm", "rig_from_skelegons", "rocket_launch", "solar_system", "stage_object", "three_point_lighting"], prompts.Order());
         // AVA Modeler's own server is as it was.
         Assert.Contains(ModelerServer.Definitions(), t => t.Name == "run_tool");
     }

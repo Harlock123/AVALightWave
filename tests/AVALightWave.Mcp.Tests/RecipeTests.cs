@@ -35,6 +35,7 @@ public class RecipeTests
         { "domino_run", """{"count": "5", "gap": "3", "width": "48"}""" },
         { "rocket_launch", """{"frames": "30", "width": "48"}""" },
         { "dancing_shapes", """{"frames": "24", "beat": "12", "width": "48"}""" },
+        { "domino_physics", """{"count": "6", "frames": "90", "width": "32"}""" },
     };
 
     internal static List<(string Tool, Dictionary<string, object?> Args)> CallsIn(string text) =>
@@ -54,7 +55,7 @@ public class RecipeTests
         using var b = new Bench();
         await using var s = await b.Serve();
         var tools = (await s.Client.ListToolsAsync(cancellationToken: Cancel)).Select(t => t.Name).ToHashSet();
-        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm", "clone_stagger", "light_beams", "composite_shot", "rig_from_skelegons", "follow_and_jitter", "morph_and_macro", "ball_from_nothing", "solar_system", "product_reveal", "domino_run", "rocket_launch", "dancing_shapes" })
+        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm", "clone_stagger", "light_beams", "composite_shot", "rig_from_skelegons", "follow_and_jitter", "morph_and_macro", "ball_from_nothing", "solar_system", "product_reveal", "domino_run", "rocket_launch", "dancing_shapes", "domino_physics" })
         {
             var prompt = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Single(p => p.Name == name);
             Assert.False(string.IsNullOrWhiteSpace(prompt.Description));
@@ -147,6 +148,13 @@ public class RecipeTests
                 Assert.Equal(["Hull", "Trim"], rocket.Document!.Surfaces.Skip(1).Select(s => s.Name).Order());
                 Assert.True(rocket.PositionAt(30).Y > 10);
                 Assert.NotNull(((ObjectItem)scene.Find("Exhaust")!).Particles);
+                break;
+            }
+            case "domino_physics":
+            {
+                var lastOne = scene.Find("Domino 6")!;
+                Assert.True(lastOne.WorldMatrix(90).TransformVector(AVAModeler.Core.Vec3.UnitY).Normalized().Y < 0.8, "the last domino is still standing");
+                Assert.NotNull(((ObjectItem)lastOne).RigidBody);
                 break;
             }
             case "dancing_shapes":
