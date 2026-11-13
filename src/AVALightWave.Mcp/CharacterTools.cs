@@ -132,4 +132,56 @@ public sealed partial class LightWaveTools
                 ["channels"] = c.Channels.Count,
             })]),
         }, cancel, changes: false);
+
+    [McpServerTool(Name = "make_character", Destructive = true)]
+    [Description("Makes a simple jointed figure, standing with its feet on the ground at position, facing heading (0 faces +Z), as one undo step: an invisible rig object (named name) with bones for its legs (Thigh L/R, Shin L/R, each shin reaching for a foot goal null by IK, the knees bending forward only) and arms (Upper Arm L/R, Forearm L/R), and rigid parts riding on them (torso, head, thighs, shins, feet, arms with hands) in two colours. Move it by moving the rig object; walk makes it walk. Returns its items.")]
+    public Task<string> MakeCharacter(
+        [Description("The character's name (default \"Walker\").")] string? name = null,
+        [Description("Its height in metres (default 1.8).")] double height = 1.8,
+        [Description("Its clothes' colour [r, g, b] (default blue).")] double[]? color = null,
+        [Description("Its skin's colour [r, g, b] (default [230, 190, 160]).")] double[]? skin = null,
+        [Description("Where it stands [x, y, z] (y: the ground under it).")] double[]? position = null,
+        [Description("Which way it faces, degrees (0: +Z).")] double heading = 0,
+        CancellationToken cancel = default) =>
+        Making("made a character", (_, l, _) =>
+        {
+            static AVAModeler.Core.Rgb Colour(double[]? c, AVAModeler.Core.Rgb fallback) =>
+                c == null ? fallback : c.Length == 3 && c.All(x => x >= 0 && x <= 255) ? new AVAModeler.Core.Rgb((byte)c[0], (byte)c[1], (byte)c[2])
+                : throw new ArgumentException("Colours are [r, g, b], each 0 to 255.");
+            var at = position != null ? Vector(position, "position") : AVAModeler.Core.Vec3.Zero;
+            var c = Characters.Make(l.Scene, string.IsNullOrWhiteSpace(name) ? "Walker" : name.Trim(), height,
+                Colour(color, new(60, 90, 170)), Colour(skin, new(230, 190, 160)), at, heading);
+            var parts = l.Scene.Objects.Where(o => o != c.Rig && o.Ancestors().Any(a => a == c.Rig || a is Bone b && b.Owner == c.Rig)).Select(o => (JsonNode)o.Name);
+            return new JsonObject
+            {
+                ["rig"] = c.Rig.Name, ["bones"] = new JsonArray([.. c.Rig.Bones.Select(b => (JsonNode)b.Name)]),
+                ["foot_goals"] = new JsonArray(c.FootL.Name, c.FootR.Name), ["parts"] = new JsonArray([.. parts]), ["height"] = height,
+                ["next"] = "walk makes it walk along points; set_transform on the rig moves it whole.",
+            };
+        }, cancel);
+
+    [McpServerTool(Name = "walk", Destructive = true)]
+    [Description("Makes a character walk along points (on the ground plane; heights come from whatever is below, so it climbs steps and slopes), as one undo step: the rig moves at speed metres a second from start, turning to face its way, the hips bobbing and swaying; each foot goal steps from plant to plant, step metres apart, lifted lift metres, landing on the ground below (corners are rounded off); the legs are solved exactly to their goals and keyed every frame (the shins' full-time IK is turned off, the goals kept as the footprints); the arms swing against the legs; and the feet come together at the end. Works on a make_character figure or any rig with bones Thigh L/R and Shin L/R whose shins have IK goals. The scene is lengthened to fit. Returns the frames it takes and the steps.")]
+    public Task<string> Walk(
+        [Description("The character's rig object, by name.")] string character,
+        [Description("The points to walk through, [[x, y, z], ...] (y is ignored: the ground decides).")] double[][] points,
+        [Description("The frame it sets off (default: the current frame).")] double? start = null,
+        [Description("Walking speed, m/s (default 1.2).")] double speed = 1.2,
+        [Description("How far the hips travel each step, metres (default: 0.2 of its height; a stride is two steps).")] double? step = null,
+        [Description("How high a foot lifts, metres (default: 0.07 of its height).")] double? lift = null,
+        CancellationToken cancel = default) =>
+        Making("walked a character", (_, l, _) =>
+        {
+            var rig = ObjectByName(l.Scene, character);
+            var c = CharacterRig.Of(rig);
+            if (points == null || points.Length == 0) throw new ArgumentException("points is needed: where to walk, [[x, y, z], ...].");
+            var pts = points.Select((p, i) => Vector(p, $"points[{i}]")).ToList();
+            double height = c.Scale * 1.8;
+            var w = Characters.Walk(l.Scene, c, pts, start ?? l.Frame, speed, step ?? 0.4 * height * 0.5, lift ?? 0.07 * height);
+            return new JsonObject
+            {
+                ["character"] = rig.Name, ["frames"] = new JsonArray(w.Start, Math.Round(w.End, 3)), ["steps"] = w.Steps,
+                ["distance"] = Math.Round(w.Distance, 3), ["scene_frames"] = new JsonArray(l.Scene.FirstFrame, l.Scene.LastFrame),
+            };
+        }, cancel);
 }

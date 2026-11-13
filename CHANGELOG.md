@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Characters and walk cycles** for agents: `make_character` makes a jointed figure, and `walk` walks it along
+  points, its feet stepping onto the ground below (up steps too), its legs solved to its footprints, its arms
+  swinging.
 - **Action clips** for agents: `save_action` keeps keys over items and their bones from a span (in the scene and
   in .action files); `place_action` puts them back at any frame, at a speed, looped, blended, or onto another
   character with the same bones.
