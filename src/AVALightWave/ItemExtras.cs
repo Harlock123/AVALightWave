@@ -91,6 +91,31 @@ public sealed partial class ItemsPanel
         }
     }
 
+    /// <summary>Light linking: whether the light lights every object, only the ticked ones, or all but them.</summary>
+    private void LightLinking(LightItem l, ItemPropertiesPanel panel)
+    {
+        var s = Doc.Session;
+        panel.Children.Add(Section("Light linking"));
+        var mode = new ComboBox { ItemsSource = new[] { "Lights every object", "Lights only the ticked", "Lights all but the ticked" }, SelectedIndex = (int)l.LinkMode, FontSize = 11, Name = "LightLinkMode" };
+        mode.SelectionChanged += (_, _) =>
+        {
+            if (mode.SelectedIndex < 0 || mode.SelectedIndex == (int)l.LinkMode) return;
+            Try(() => s.Edit("Light Linking", () => { l.LinkMode = (LightLinkMode)mode.SelectedIndex; if (l.LinkMode == LightLinkMode.All) l.LinkedObjects = []; s.Scene.Notify(); }));
+        };
+        panel.Children.Add(mode);
+        if (l.LinkMode == LightLinkMode.All) return;
+        foreach (var o in s.Scene.Objects.Where(o => o.BaseMesh().Points.Count > 0))
+        {
+            var obj = o;
+            panel.Children.Add(Check(obj.Name, l.LinkedObjects.Contains(obj), on => Try(() => s.Edit("Light Linking", () =>
+            {
+                l.LinkedObjects = on ? [.. l.LinkedObjects.Where(x => x != obj), obj] : [.. l.LinkedObjects.Where(x => x != obj)];
+                s.Scene.Notify();
+            })), "Link_" + obj.Name));
+        }
+        panel.Children.Add(Note("The ray tracer follows it; shadows, flares and beams are as without it, and the views light everything."));
+    }
+
     /// <summary>A camera's bookmarks: save this view under a name, and go back to any saved one (keyed if the camera is animated).</summary>
     private void Bookmarks(CameraItem cam, ItemPropertiesPanel panel)
     {

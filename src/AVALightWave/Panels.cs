@@ -254,7 +254,11 @@ public sealed partial class ItemsPanel : LayoutPanel
     /// <summary>An object's file and state, under its settings.</summary>
     private void Extras(SceneItem item, ItemPropertiesPanel panel)
     {
-        if (item is LightItem light) LightEffects(light, panel);
+        if (item is LightItem light)
+        {
+            LightEffects(light, panel);
+            LightLinking(light, panel);
+        }
         if (item is CameraItem cam) Bookmarks(cam, panel);
         if (item is not ObjectItem o) return;
         var file = o.SourcePath ?? o.Document?.FilePath;

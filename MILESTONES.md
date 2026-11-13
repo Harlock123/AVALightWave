@@ -80,6 +80,8 @@ the waveform and OpenAL playback in AVALightWave, behind `ISoundOutput` so tests
 
 ## Milestone D: rendering
 
+**Status:** stage 1 done (light linking, AVA Modeler e1406ed; the views still light everything).
+
 1. **Light linking (engine).** A light can light only listed objects, or every object but listed ones, in the ray
    tracer, shadow maps and the views. It is in `set_item` and the light panel.
 2. **Render passes (engine).** Besides the beauty pass, the ray tracer can output depth, normal, object ID, albedo,

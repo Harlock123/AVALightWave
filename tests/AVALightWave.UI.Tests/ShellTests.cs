@@ -380,6 +380,29 @@ public class ShellTests
         Assert.Contains("Can't use crate.lwo", w.Status);
     }
 
+    [AvaloniaFact]
+    public void The_lights_panel_links_a_light_to_chosen_objects()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        var crate = w.Document.LoadObject(bench.Object("crate.lwo"));
+        var light = w.Session.Scene.Lights.First();
+        w.Session.Select(light);
+        w.ShowPanel("Lights");
+        Ui.Pump();
+        Ui.Find<ComboBox>(w.CurrentPanel!, "LightLinkMode").SelectedIndex = 1;
+        Ui.Pump();
+        Assert.Equal(LightLinkMode.Only, light.LinkMode);
+        ((ItemsPanel)w.CurrentPanel!).Reshow();
+        Ui.Pump();
+        Ui.Find<CheckBox>(w.CurrentPanel!, "Link_" + crate.Name).IsChecked = true;
+        Ui.Pump();
+        Assert.Equal([crate], light.LinkedObjects);
+        Assert.Equal("Light Linking", w.Session.History.UndoLabel);
+        w.Undo();
+        Assert.Empty(light.LinkedObjects);
+    }
+
     private static void Press(Button b)
     {
         b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

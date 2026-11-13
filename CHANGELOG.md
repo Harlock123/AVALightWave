@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Light linking** (from the engine): the Lights panel and `set_item` make a light light only chosen objects, or
+  all but them.
 - **Lip sync** for agents: `lip_sync` keys a mouth open and shut with the sound track's loudness (and wider with
   its brightness), thinned to readable keys. It follows loudness, not phonemes.
 - **Characters and walk cycles** for agents: `make_character` makes a jointed figure, and `walk` walks it along
