@@ -155,7 +155,7 @@ public sealed partial class LightWaveTools
             for (int a = shot.First; a <= shot.Last; a += chunk)
             {
                 int b = Math.Min(shot.Last, a + chunk - 1);
-                var r = await engine.RenderAnimation(folder, name, a, b, 1, width, height, samples, shot.Camera, overwrite, null, cancel).ConfigureAwait(false);
+                var r = await engine.RenderAnimation(folder, name, a, b, 1, width, height, samples, shot.Camera, overwrite, movie: null, cancel: cancel).ConfigureAwait(false);
                 if (r.IsError == true) throw new McpException($"Shot {shot.Name}, frames {a} to {b}: " + string.Join(" ", r.Content.OfType<TextContentBlock>().Select(t => t.Text)));
                 files += b - a + 1;
             }

@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **A denoiser and render passes** (from the engine): the Render and Render Animation windows' Denoise box, and
+  `denoise` on render_scene, render_animation and queue_render (the farm's nodes too); render_animation saves depth,
+  normal, object ID, albedo, emission, shadow and reflection passes.
 - **Light linking** (from the engine): the Lights panel and `set_item` make a light light only chosen objects, or
   all but them.
 - **Lip sync** for agents: `lip_sync` keys a mouth open and shut with the sound track's loudness (and wider with

@@ -46,6 +46,9 @@ public sealed record FarmJobSpec
     public int Height { get; init; } = 480;
     /// <summary>Rays a pixel (antialiasing), 1 to 64.</summary>
     public int Samples { get; init; } = 1;
+    /// <summary>Denoise each frame (the engine's RenderSettings.Denoise). Written only when true, so older nodes read the job as before.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool Denoise { get; init; }
     /// <summary>The PNGs' names before their number, as Render Animation's: frame0001.png and so on.</summary>
     public string Output { get; init; } = "frame";
     /// <summary>The movie made when every frame is done: none, mp4, gif or both (with ffmpeg, if the node has it).</summary>
@@ -101,6 +104,7 @@ public sealed record FarmSubmit
     public int Width { get; init; } = 640;
     public int Height { get; init; } = 480;
     public int Samples { get; init; } = 1;
+    public bool Denoise { get; init; }
     public string Output { get; init; } = "frame";
     public string Movie { get; init; } = "none";
 
@@ -233,7 +237,7 @@ public sealed class FarmFolder
             Id = NewId(now),
             Name = (settings.Name ?? "").Trim() is { Length: > 0 } n ? n : "Scene",
             First = settings.First, Last = settings.Last, Step = settings.Step,
-            Width = settings.Width, Height = settings.Height, Samples = settings.Samples,
+            Width = settings.Width, Height = settings.Height, Samples = settings.Samples, Denoise = settings.Denoise,
             Output = settings.Output, Movie = (settings.Movie ?? "none").Trim().ToLowerInvariant(),
             Fps = snapshot.FramesPerSecond > 0 ? snapshot.FramesPerSecond : 30,
             Created = now,

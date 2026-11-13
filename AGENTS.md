@@ -127,7 +127,8 @@ python3 tools/make_icon.py                        # redraws the icon
   ```
   jobs/<id>/            id = yyyyMMdd-HHmmss-<6 hex>; made as jobs/.<id>.partial and renamed into place when complete
     job.json            FarmJobSpec, snake_case, written atomically: protocol, id, name, scene ("scene.avascene"),
-                        first, last, step, width, height, samples (1–64), output, movie (none|mp4|gif|both), fps,
+                        first, last, step, width, height, samples (1–64), denoise (written only when true), output,
+                        movie (none|mp4|gif|both), fps,
                         created, order (queue order; Up/Down swap it), submitter
     scene.avascene      the scene, meshes embedded; no paths of the sender's
     images/…            every image the scene uses, its paths rewritten to "images/<name>"

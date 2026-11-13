@@ -57,7 +57,7 @@ workspace of its own; AVALightWave is the standalone Layout, and the hub joins t
 | Make Preview | Render › Make Preview (Shift+P): a wireframe or shaded flipbook of a range of frames drawn as the view draws them (not ray traced), through the camera or the active view, made in the background, then played at the scene's frame rate with loop and stepping, and saved as numbered PNGs, MP4 or GIF (with ffmpeg) |
 | ScreamerNet (network rendering) | Render › Render Queue: batch rendering of scene jobs, and a render farm in a shared folder with headless render nodes (`AVALightWave --render-node <folder>`) on this or other machines; below |
 | ARexx/LScript macros | Lua scene macros on AVA Modeler's macro engine and sandbox (the Macros menu, your macro folder); below |
-| Rendering | The engine's ray tracer (F9) with ambient occlusion, environment lighting, depth of field and motion blur; Render Animation (F10) to PNG frames and, with ffmpeg, MP4 and GIF; glTF export |
+| Rendering | The engine's ray tracer (F9) with a Denoise box (smooths away the noise of few rays, keeping edges and textures sharp), render passes for agents (depth, normal, object ID, albedo, emission, shadow, reflection), ambient occlusion, environment lighting, depth of field and motion blur; Render Animation (F10) to PNG frames and, with ffmpeg, MP4 and GIF; glTF export |
 | The hub | A live link with AVA Modeler (below) |
 
 Every change to the scene (a drag, a value typed, a key, a panel setting, a surface, Replace Object, an update from

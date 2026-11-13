@@ -20,8 +20,9 @@ public class FarmToolTests
         await Stage(s);
         long version = b.Scene.Version;
         string? undo = b.Host.Layout.History.UndoLabel;
-        var r = await s.Client.Json("queue_render", new { width = 32, height = 24, name = "crate", job_name = "Crate test" });
+        var r = await s.Client.Json("queue_render", new { width = 32, height = 24, name = "crate", job_name = "Crate test", denoise = true });
         string id = (string)r["job"]!;
+        Assert.Contains("\"denoise\": true", File.ReadAllText(b.Folder.File($"render-queue/jobs/{id}/job.json")));
         Assert.Equal("render-queue", (string?)r["folder"]);
         Assert.Equal(3, (int?)r["frames"]);
         Assert.Equal($"render-queue/jobs/{id}/out", (string?)r["output_folder"]);

@@ -259,6 +259,7 @@ public sealed partial class LightWaveTools(IModelerHost host, ILightWaveApp? app
         [Description("Height in pixels, 1 to 8192 (default: the camera's).")] int? height = null,
         [Description("Rays per pixel (antialiasing), 1 to 64 (default 1).")] int samples = 1,
         [Description("The frames' file name before the number (default \"frame\": frame0001.png…).")] string name = "frame",
+        [Description("Denoise each frame, so few rays give clean frames (default false).")] bool denoise = false,
         [Description("The job's name in the queue (default: the scene's file name, or \"Scene\").")] string? job_name = null,
         [Description("A movie of the frames when they're all done: none (default), mp4, gif or both (needs ffmpeg on the node).")] string movie = "none",
         [Description("The render farm folder, relative to the working folder, e.g. \"farm\" (made if needed). Default: the open window's render queue; headless, \"render-queue\" in the working folder.")] string? folder = null,
@@ -275,7 +276,7 @@ public sealed partial class LightWaveTools(IModelerHost host, ILightWaveApp? app
                 {
                     Name = job_name ?? (l.ScenePath != null ? Path.GetFileNameWithoutExtension(l.ScenePath) : null),
                     First = first ?? basis.First, Last = last ?? basis.Last, Step = step ?? basis.Step,
-                    Width = width ?? basis.Width, Height = height ?? basis.Height, Samples = samples,
+                    Width = width ?? basis.Width, Height = height ?? basis.Height, Samples = samples, Denoise = denoise,
                     Output = name, Movie = movie,
                 };
                 return (FarmFolder.Snapshot(s), sub, l.ScenePath != null ? Path.GetDirectoryName(Path.GetFullPath(l.ScenePath)) : host.Root);

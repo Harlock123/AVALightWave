@@ -256,7 +256,7 @@ public sealed class FarmNode
             var camera = scene.CurrentCamera ?? throw new FarmRefusedException("The scene has no camera to render through.");
             var settings = new RenderSettings
             {
-                Width = spec.Width, Height = spec.Height, Camera = camera, SamplesPerPixel = spec.Samples,
+                Width = spec.Width, Height = spec.Height, Camera = camera, SamplesPerPixel = spec.Samples, Denoise = spec.Denoise,
                 MaxThreads = _options.Threads > 0 ? _options.Threads : -1,
             };
             var image = RayTracer.Render(scene, frame, settings, null, frameCancel.Token);
