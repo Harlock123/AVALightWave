@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using AVAModeler.Layout;
 using AVAModeler.Scene;
 
 namespace AVALightWave;
@@ -193,5 +194,82 @@ public static class SceneSound
             audio = new SceneAudio { Path = Path.GetFullPath(path), StartFrame = startFrame, Volume = volume }.Checked();
         }
         session.Edit(path == null ? "Remove Sound" : "Set Sound", () => { session.Scene.Audio = audio; session.Scene.Notify(); });
+    }
+}
+
+/// <summary>
+/// Lip sync from the sound track's loudness (milestone C, stage 4): a channel (a mouth morph, a jaw bone's pitch, a
+/// mouth's scale) keyed from closed to open as the sound is loud, and optionally another from narrow to wide as it is
+/// bright, the keys thinned to the shapes that matter. It follows loudness, not words: mouths move with the voice, not
+/// phoneme by phoneme.
+/// </summary>
+public static class LipSync
+{
+    /// <summary>What lip sync keyed.</summary>
+    public sealed record Keyed(int Keys, int WideKeys, double First, double Last);
+
+    /// <summary>The voice's openness (0 to 1) at frames from first to last, every <paramref name="step"/> frames.</summary>
+    public static List<(double Frame, double Open, double Wide)> Shapes(Scene s, WavSound sound, double first, double last, double step, double threshold)
+    {
+        double fps = s.FramesPerSecond > 0 ? s.FramesPerSecond : 30, window = 1.5 / fps;
+        var frames = new List<double>();
+        for (double f = first; f < last - 1e-9; f += step) frames.Add(Math.Round(f, 4));
+        frames.Add(last);
+        var loud = frames.Select(f => sound.Loudness(SceneSound.SecondsAt(s, f), window)).ToList();
+        var bright = frames.Select(f => sound.Brightness(SceneSound.SecondsAt(s, f), window)).ToList();
+        // Loud is relative to this voice: its loudest twentieth sets full open.
+        var sorted = loud.Order().ToList();
+        double top = Math.Max(1e-4, sorted[(int)Math.Clamp(Math.Round(sorted.Count * 0.95), 0, sorted.Count - 1)]);
+        var shapes = new List<(double, double, double)>();
+        for (int i = 0; i < frames.Count; i++)
+        {
+            double open = Math.Clamp(loud[i] / top, 0, 1);
+            open = open < threshold ? 0 : (open - threshold) / (1 - threshold);
+            // Mouths open fast and close a little slower: a touch of the frame before.
+            if (i > 0) open = Math.Max(open, shapes[i - 1].Item2 * 0.55);
+            shapes.Add((frames[i], open, open > 0 ? Math.Clamp(bright[i] * 1.6, 0, 1) : 0));
+        }
+        return shapes;
+    }
+
+    /// <summary>
+    /// Keys an envelope from the shapes (closed + (open − closed) × openness), thinned: a key is left out where the
+    /// keys either side already pass within <paramref name="tolerance"/> (of the full range) of it. Replaces the keys
+    /// from first to last. Call inside an edit.
+    /// </summary>
+    public static int Key(Scene s, Envelope env, IReadOnlyList<(double Frame, double Amount)> shape, double closed, double open, double tolerance)
+    {
+        double first = shape[0].Frame, last = shape[^1].Frame;
+        for (int i = env.Keys.Count - 1; i >= 0; i--)
+            if (env.Keys[i].Frame >= first - 1e-9 && env.Keys[i].Frame <= last + 1e-9 && env.Keys.Count > 1) env.RemoveKey(i);
+        // Douglas–Peucker on (frame, amount): keep the points the line between kept neighbours misses by more than the tolerance.
+        var keep = new bool[shape.Count];
+        keep[0] = keep[^1] = true;
+        void Thin(int a, int b)
+        {
+            if (b - a < 2) return;
+            int worst = -1;
+            double most = tolerance;
+            for (int i = a + 1; i < b; i++)
+            {
+                double t = (shape[i].Frame - shape[a].Frame) / (shape[b].Frame - shape[a].Frame);
+                double line = shape[a].Amount + (shape[b].Amount - shape[a].Amount) * t;
+                double off = Math.Abs(shape[i].Amount - line);
+                if (off > most) { most = off; worst = i; }
+            }
+            if (worst < 0) return;
+            keep[worst] = true;
+            Thin(a, worst);
+            Thin(worst, b);
+        }
+        Thin(0, shape.Count - 1);
+        int n = 0;
+        for (int i = 0; i < shape.Count; i++)
+        {
+            if (!keep[i]) continue;
+            Keying.Key(env, s, new EnvelopeKey(shape[i].Frame, closed + (open - closed) * shape[i].Amount), keepShape: false);
+            n++;
+        }
+        return n;
     }
 }

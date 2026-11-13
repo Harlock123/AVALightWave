@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Text.Json.Nodes;
+using AVAModeler.Layout;
 using AVAModeler.Scene;
 using ModelContextProtocol.Server;
 
@@ -183,5 +184,63 @@ public sealed partial class LightWaveTools
                 ["character"] = rig.Name, ["frames"] = new JsonArray(w.Start, Math.Round(w.End, 3)), ["steps"] = w.Steps,
                 ["distance"] = Math.Round(w.Distance, 3), ["scene_frames"] = new JsonArray(l.Scene.FirstFrame, l.Scene.LastFrame),
             };
+        }, cancel);
+
+    [McpServerTool(Name = "lip_sync", Destructive = true)]
+    [Description("Keys a mouth to the scene's sound track (set_audio first), as one undo step: item's channel goes from closed to open as the voice is loud, from frame first to last (default: as long as the sound plays, within the scene), keyed every `every` frames and thinned to the shapes that matter (tolerance, of the full range). The channel can be a morph (\"morph.Open\": 0 closed, 1 open, the defaults), a jaw bone's pitch (e.g. closed 0, open 18), or a mouth object's scale.y (e.g. closed 0.1, open 1). wide_item and wide_channel (with wide_closed and wide_open) key a second shape from how bright the voice is (ah and ee wider than oo and m). It follows loudness, not words: the mouth moves with the voice, not phoneme by phoneme. Returns the keys made.")]
+    public Task<string> LipSync(
+        [Description("The item whose channel opens the mouth, by name.")] string item,
+        [Description("The channel: \"morph.<name>\", \"pitch\", \"scale.y\"… (default: the item's first morph).")] string? channel = null,
+        [Description("The channel's value with the mouth shut (default: 0 for a morph, else its value now).")] double? closed = null,
+        [Description("Its value with the mouth wide open (default: 1 for a morph; needed otherwise).")] double? open = null,
+        [Description("The first frame (default: where the sound starts, or the scene's first).")] double? first = null,
+        [Description("The last frame (default: where the sound ends, or the scene's last).")] double? last = null,
+        [Description("Frames between samples, 1 to 6 (default 2).")] double every = 2,
+        [Description("Quieter than this share of the voice's loud parts is shut, 0 to 0.9 (default 0.12).")] double threshold = 0.12,
+        [Description("How closely the thinned keys follow, 0 to 0.5 of the full range (default 0.06).")] double tolerance = 0.06,
+        [Description("A second item for how wide the mouth is.")] string? wide_item = null,
+        [Description("Its channel (e.g. \"morph.Wide\", \"scale.x\").")] string? wide_channel = null,
+        [Description("Its value at narrow (default 0 for a morph).")] double? wide_closed = null,
+        [Description("Its value at widest (default 1 for a morph).")] double? wide_open = null,
+        CancellationToken cancel = default) =>
+        Making("lip synced", (_, l, _) =>
+        {
+            var s = l.Scene;
+            var sound = SceneSound.Of(s) ?? throw new ArgumentException(s.Audio.On ? $"The sound track {Path.GetFileName(s.Audio.Path)} can't be read." : "The scene has no sound track: set_audio gives it one.");
+            if (every < 1 || every > 6) throw new ArgumentException("every must be from 1 to 6 frames.");
+            if (threshold < 0 || threshold > 0.9) throw new ArgumentException("threshold must be from 0 to 0.9.");
+            if (tolerance < 0 || tolerance > 0.5) throw new ArgumentException("tolerance must be from 0 to 0.5.");
+            (AVAModeler.Scene.Envelope Env, string Name, double Closed, double Open) Target(string itemName, string? ch, double? c0, double? c1, string what)
+            {
+                var it = ItemByName(s, itemName);
+                string name = ch ?? (it is ObjectItem o && o.Morphs.Count > 0 ? "morph." + o.Morphs[0].Name
+                    : throw new ArgumentException($"{it.Name} has no morph: give {what}channel (e.g. \"pitch\" for a jaw bone, \"scale.y\" for a mouth)."));
+                var env = SceneChannels.Find(it, name.Trim()) ?? throw new ArgumentException($"{it.Name} has no channel \"{name}\". Its channels are {string.Join(", ", SceneChannels.Of(it).Select(x => x.Name))}.");
+                bool morph = name.StartsWith("morph.", StringComparison.Ordinal);
+                double shut = c0 ?? (morph ? 0 : env.Evaluate(l.Frame));
+                double wide = c1 ?? (morph ? 1 : throw new ArgumentException($"Give {what}open: the {name} value with the mouth fully open."));
+                return (env, $"{it.Name}'s {name}", shut, wide);
+            }
+            var main = Target(item, channel, closed, open, "");
+            double soundStart = s.Audio.StartFrame ?? s.FirstFrame;
+            double a = first ?? Math.Max(s.FirstFrame, soundStart);
+            double z = last ?? Math.Min(s.LastFrame, soundStart + sound.Seconds * s.FramesPerSecond);
+            if (!(z > a)) throw new ArgumentException($"There's nothing to sync between frames {a} and {z}: the sound plays from {soundStart:0.##} for {sound.Seconds:0.##} s.");
+            var shapes = AVALightWave.LipSync.Shapes(s, sound, a, z, every, threshold);
+            int keys = AVALightWave.LipSync.Key(s, main.Env, shapes.Select(x => (x.Frame, x.Open)).ToList(), main.Closed, main.Open, tolerance);
+            int wideKeys = 0;
+            if (wide_item != null || wide_channel != null)
+            {
+                var wide = Target(wide_item ?? item, wide_channel, wide_closed, wide_open, "wide_");
+                wideKeys = AVALightWave.LipSync.Key(s, wide.Env, shapes.Select(x => (x.Frame, x.Wide)).ToList(), wide.Closed, wide.Open, tolerance);
+            }
+            s.Notify();
+            var result = new JsonObject
+            {
+                ["keyed"] = main.Name, ["keys"] = keys, ["frames"] = new JsonArray(Math.Round(a, 3), Math.Round(z, 3)),
+                ["open_frames"] = shapes.Count(x => x.Open > 0.5) * every,
+            };
+            if (wideKeys > 0) result["wide_keys"] = wideKeys;
+            return result;
         }, cancel);
 }

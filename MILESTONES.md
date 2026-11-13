@@ -56,7 +56,8 @@ toward the other body so equal boxes stack).
 
 ## Milestone C: characters
 
-**Status:** stages 1 to 3 done (the walk solves each leg exactly as two bones and keys it, turning the shins'
+**Status:** done. Lip sync is Core's `LipSync` (loudness against the voice's own loudest twentieth, a quick open and a
+slower close, Douglas–Peucker thinning; brightness from zero crossings). The walk solves each leg exactly as two bones and keys it, turning the shins'
 full-time IK off, since the engine's general solver wobbles at full stretch; action clips in Core's `ActionClips`, kept in `avalightwave.actions`; the engine's `SceneAudio` and MP4 sound, AVA Modeler fb28510 and d90fb7d; WAV reading,
 the waveform and OpenAL playback in AVALightWave, behind `ISoundOutput` so tests stay silent).
 

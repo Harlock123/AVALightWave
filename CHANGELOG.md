@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Lip sync** for agents: `lip_sync` keys a mouth open and shut with the sound track's loudness (and wider with
+  its brightness), thinned to readable keys. It follows loudness, not phonemes.
 - **Characters and walk cycles** for agents: `make_character` makes a jointed figure, and `walk` walks it along
   points, its feet stepping onto the ground below (up steps too), its legs solved to its footprints, its arms
   swinging.

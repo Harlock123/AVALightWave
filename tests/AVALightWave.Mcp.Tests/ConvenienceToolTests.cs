@@ -62,4 +62,38 @@ public class ConvenienceToolTests
         await s.Client.Json("set_audio", new { off = true });
         Assert.False(b.Scene.Audio.On);
     }
+
+    [Fact]
+    public async Task Lip_sync_opens_the_mouth_with_the_voice()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        // Four syllables of a quarter second at frames 1-8, 16-23, 31-38, 46-53, with silence between (at 30 fps).
+        const int rate = 16000;
+        var voice = new float[rate * 2];
+        for (int i = 0; i < voice.Length; i++)
+        {
+            double t = (double)i / rate;
+            bool on = (t % 0.5) < 0.25;
+            voice[i] = on ? (float)(0.5 * Math.Sin(2 * Math.PI * (t < 1 ? 300 : 1800) * t)) : 0;
+        }
+        File.WriteAllBytes(b.Folder.File("voice.wav"), WavSound.Write(voice, rate));
+        Assert.Contains("no sound track", await s.Client.Fails("lip_sync", new { item = "Camera", channel = "zoom", open = 2 }));
+        await s.Client.Json("set_audio", new { file = "voice.wav" });
+        await s.Client.Json("make_object", new { shape = "box", name = "Mouth", size = new[] { 0.3, 0.1, 0.05 } });
+        Assert.Contains("has no morph", await s.Client.Fails("lip_sync", new { item = "Mouth" }));
+        var r = await s.Client.Json("lip_sync", new
+        {
+            item = "Mouth", channel = "scale.y", closed = 0.1, open = 1, every = 1, wide_channel = "scale.x", wide_closed = 0.8, wide_open = 1.4,
+        });
+        var mouth = b.Scene.Find("Mouth")!;
+        Assert.True(mouth.ScaleAt(5).Y > 0.6, $"open in a syllable: {mouth.ScaleAt(5).Y}");
+        Assert.True(mouth.ScaleAt(12).Y < 0.35, $"shut between: {mouth.ScaleAt(12).Y}");
+        Assert.True(mouth.ScaleAt(35).Y > 0.6);
+        Assert.True((int)r["keys"]! < 60, "the keys weren't thinned");
+        Assert.True((int)r["wide_keys"]! > 0);
+        // The bright second half (1800 Hz) is wider than the dark first (300 Hz).
+        Assert.True(mouth.ScaleAt(50).X > mouth.ScaleAt(5).X + 0.1);
+        Assert.Equal("Agent: lip synced", b.Host.Layout.History.UndoLabel);
+    }
 }
