@@ -1,4 +1,3 @@
-using AVALightWave.Core;
 using AVAModeler.Core;
 using AVAModeler.Scene;
 

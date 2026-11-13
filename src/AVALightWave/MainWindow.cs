@@ -665,7 +665,8 @@ public sealed class MainWindow : Window
                 }).ToArray()),
                 Group("_Panels", _panels.Keys.Select(n => (object)Item("_" + n, () => ShowPanel(n))).ToArray()),
                 Group("_Render", Item("Render _Frame", Render, "F9"), Item("Render _Animation…", () => RenderAnimation(), "F10"), "-",
-                    Item("Make _Preview…", () => MakePreview(), "Shift+P"), Item("Render _Queue…", () => OpenRenderQueue())),
+                    Item("Make _Preview…", () => MakePreview(), "Shift+P"), Item("Render _Queue…", () => OpenRenderQueue()), "-",
+                    Item("_Turntable…", () => OpenWizard(AVALightWave.Mcp.WizardLook.Turntable)), Item("Product _Shot…", () => OpenWizard(AVALightWave.Mcp.WizardLook.ProductShot))),
                 Group("_Hub", Item("_Edit in Modeler", () => { if (Session.Selected is ObjectItem o) _ = EditInModeler(o); else SetStatus("Choose an object to edit in AVA Modeler."); }, "Ctrl+E"),
                     Item("_Link with AVA Modeler…", () => ShowPanel("Options"))),
                 _macros,
@@ -913,6 +914,23 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>Clone Item: the requester for copies of the chosen item (not a bone: its object brings it).</summary>
+    /// <summary>Render › Turntable / Product Shot: the wizard for the chosen object (or the first).</summary>
+    public WizardRequester? OpenWizard(AVALightWave.Mcp.WizardLook look)
+    {
+        if (!Session.Scene.Objects.Any(o => o.BaseMesh().Points.Count > 0)) { SetStatus("Load or make an object first: the wizard shows one off."); return null; }
+        var w = new WizardRequester(Document, Agents.Commands, look, Session.Selected as ObjectItem ?? CurrentObject);
+        w.Closed += (_, _) =>
+        {
+            if (w.Built is { } r)
+                SetStatus($"Built the {(look == AVALightWave.Mcp.WizardLook.Turntable ? "turntable" : "product shot")}: frames {r["scene_frames"]?[0]} to {r["scene_frames"]?[1]}"
+                    + (r["check"]?["ok"]?.GetValue<bool>() == false ? $"; check_shot says: {string.Join(" ", r["check"]!["problems"]!.AsArray().Select(p => (string?)p!["detail"]))}" : "; the shot checks out") + ".");
+            Viewports.FitAll();
+        };
+        if (_forTests) w.Show(this);
+        else _ = w.ShowDialog(this);
+        return w;
+    }
+
     public CloneRequester? OpenClone()
     {
         if (Session.Selected is not { } item) { SetStatus("Choose an item to clone."); return null; }
@@ -1160,13 +1178,13 @@ public sealed class MainWindow : Window
     }
 
     /// <summary>Packages the scene into a new folder (named after the scene) in <paramref name="parent"/>; says what it made.</summary>
-    public AVALightWave.Core.PackageResult? PackageScene(string parent, bool zip)
+    public PackageResult? PackageScene(string parent, bool zip)
     {
         string name = Document.Path is { } p ? Path.GetFileNameWithoutExtension(p) : "scene";
         string folder = Path.Combine(parent, name + " package");
         try
         {
-            var r = AVALightWave.Core.ScenePackage.Make(Session.Scene, folder, name, Document.Path is { } path ? Path.GetDirectoryName(path) : null, zip);
+            var r = ScenePackage.Make(Session.Scene, folder, name, Document.Path is { } path ? Path.GetDirectoryName(path) : null, zip);
             SetStatus($"Packaged {name} into {(r.Zip != null ? Path.GetFileName(r.Zip) : Path.GetFileName(folder))}: {r.Files.Count} files." + (r.Warnings.Count > 0 ? " " + string.Join(" ", r.Warnings) : ""));
             return r;
         }

@@ -3,7 +3,7 @@ using AVAModeler.Core;
 using AVAModeler.Formats;
 using AVAModeler.Scene;
 
-namespace AVALightWave.Core;
+namespace AVALightWave;
 
 /// <summary>What packaging a scene made: the scene file, the folder (or zip), every file written, and anything left out.</summary>
 public sealed record PackageResult(string Scene, string Folder, string? Zip, IReadOnlyList<string> Files, IReadOnlyList<string> Warnings);

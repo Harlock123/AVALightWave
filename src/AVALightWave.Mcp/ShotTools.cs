@@ -44,103 +44,109 @@ public sealed partial class LightWaveTools
     public Task<string> BuildScene(
         [Description("The plan: {\"settings\": {...}, \"objects\": [...], \"lights\": ..., \"camera\": {...}, \"steps\": [...], \"motion\": [...], \"camera_moves\": [...]}.")] JsonObject plan,
         CancellationToken cancel = default) =>
-        Making("built a scene", (c, l, root) =>
+        Making("built a scene", (c, l, root) => RunPlan(c, l, root, app, plan), cancel);
+
+    /// <summary>
+    /// Builds a shot from a plan, as build_scene does, inside the caller's edit (so it's one undo step, all or nothing):
+    /// for the tool, and for the window's wizards.
+    /// </summary>
+    public static JsonObject RunPlan(Commands c, LayoutSession l, string root, ILightWaveApp? app, JsonObject plan)
+    {
+        var known = new[] { "settings", "objects", "lights", "camera", "steps", "motion", "camera_moves" };
+        foreach (var (key, _) in plan)
+            if (!known.Contains(key)) throw new ArgumentException($"A plan has no \"{key}\". It has: {string.Join(", ", known)}.");
+        var inline = new LightWaveTools(new InlineHost(root, c, l), app);
+        var calls = SceneCalls(root, c, l, PlanSceneCalls);
+        calls.Add(inline, PlanOwnCalls);
+        var made = new JsonObject();
+        string part = "";
+        JsonObject Call(string name, JsonObject? args, string where)
         {
-            var known = new[] { "settings", "objects", "lights", "camera", "steps", "motion", "camera_moves" };
-            foreach (var (key, _) in plan)
-                if (!known.Contains(key)) throw new ArgumentException($"A plan has no \"{key}\". It has: {string.Join(", ", known)}.");
-            var inline = new LightWaveTools(new InlineHost(root, c, l), app);
-            var calls = SceneCalls(root, c, l, PlanSceneCalls);
-            calls.Add(inline, PlanOwnCalls);
-            var made = new JsonObject();
-            string part = "";
-            JsonObject Call(string name, JsonObject? args, string where)
+            part = where;
+            return EngineCaller.AsObject(calls.Call(name, args));
+        }
+        try
+        {
+            if (plan["settings"] is { } settings)
+                made["settings"] = Call("set_scene", Obj(settings, "settings"), "settings");
+
+            var objects = new JsonArray();
+            if (plan["objects"] is { } objs)
+                foreach (var (o, i) in List(objs, "objects").Select((o, i) => (Obj(o, $"objects[{i}]"), i)))
+                {
+                    string name = o["shape"] != null ? "make_object" : o["steps"] != null ? "build_object" : o["file"] != null ? "add_object"
+                        : throw new ArgumentException($"objects[{i}] needs shape (make_object), steps (build_object) or file (add_object).");
+                    var r = Call(name, o, $"objects[{i}] ({name})");
+                    objects.Add(new JsonObject { ["name"] = r["name"]?.DeepClone(), ["made_by"] = name, ["size"] = r["size"]?.DeepClone() });
+                }
+            made["objects"] = objects;
+
+            if (plan["lights"] is { } lights)
             {
-                part = where;
-                return EngineCaller.AsObject(calls.Call(name, args));
+                part = "lights";
+                made["lights"] = Lights(lights, l, calls);
             }
-            try
+
+            if (plan["steps"] is { } steps)
             {
-                if (plan["settings"] is { } settings)
-                    made["settings"] = Call("set_scene", Obj(settings, "settings"), "settings");
-
-                var objects = new JsonArray();
-                if (plan["objects"] is { } objs)
-                    foreach (var (o, i) in List(objs, "objects").Select((o, i) => (Obj(o, $"objects[{i}]"), i)))
-                    {
-                        string name = o["shape"] != null ? "make_object" : o["steps"] != null ? "build_object" : o["file"] != null ? "add_object"
-                            : throw new ArgumentException($"objects[{i}] needs shape (make_object), steps (build_object) or file (add_object).");
-                        var r = Call(name, o, $"objects[{i}] ({name})");
-                        objects.Add(new JsonObject { ["name"] = r["name"]?.DeepClone(), ["made_by"] = name, ["size"] = r["size"]?.DeepClone() });
-                    }
-                made["objects"] = objects;
-
-                if (plan["lights"] is { } lights)
+                var said = new JsonArray();
+                foreach (var (s, i) in List(steps, "steps").Select((s, i) => (Obj(s, $"steps[{i}]"), i)))
                 {
-                    part = "lights";
-                    made["lights"] = Lights(lights, l, calls);
+                    var (call, args) = Step(s, i);
+                    if (call == "run_tool") throw new ArgumentException($"steps[{i}]: modeling tools go in an object's steps (build_object), not the plan's.");
+                    Call(call, args, $"steps[{i}] ({call})");
+                    said.Add(call);
                 }
-
-                if (plan["steps"] is { } steps)
-                {
-                    var said = new JsonArray();
-                    foreach (var (s, i) in List(steps, "steps").Select((s, i) => (Obj(s, $"steps[{i}]"), i)))
-                    {
-                        var (call, args) = Step(s, i);
-                        if (call == "run_tool") throw new ArgumentException($"steps[{i}]: modeling tools go in an object's steps (build_object), not the plan's.");
-                        Call(call, args, $"steps[{i}] ({call})");
-                        said.Add(call);
-                    }
-                    made["steps"] = said;
-                }
-
-                if (plan["motion"] is { } motion)
-                {
-                    var r = Call("animate", new JsonObject { ["moves"] = motion.DeepClone() }, "motion");
-                    made["motion"] = r["moves"]?.AsArray().Count;
-                    if (r["note"] is { } note) made["frames_note"] = note.DeepClone();
-                }
-
-                if (plan["camera"] is { } camera)
-                {
-                    var cam = Obj(camera, "camera");
-                    if (cam["position"] != null || cam["look_at"] != null || cam["zoom"] != null)
-                    {
-                        part = "camera";
-                        var name = cam["camera"]?.GetValue<string>() ?? l.Scene.CurrentCamera?.Name ?? throw new ArgumentException("The scene has no camera.");
-                        foreach (var (key, _) in cam)
-                            if (key is not ("camera" or "position" or "look_at" or "zoom")) throw new ArgumentException($"camera with position or look_at has no \"{key}\" (give items to fit instead).");
-                        if (cam["zoom"] is { } zoom) Call("set_item", new JsonObject { ["item"] = name, ["zoom"] = zoom.DeepClone() }, "camera");
-                        if (cam["position"] is { } pos) Call("set_transform", new JsonObject { ["item"] = name, ["position"] = pos.DeepClone(), ["key"] = false }, "camera");
-                        if (cam["look_at"] is { } at)
-                            Call("look_at", at is JsonArray ? new JsonObject { ["item"] = name, ["point"] = at.DeepClone(), ["key"] = false }
-                                : new JsonObject { ["item"] = name, ["target"] = at.DeepClone(), ["key"] = false }, "camera");
-                        made["camera"] = name;
-                    }
-                    else made["camera"] = Call("frame_items", cam, "camera (frame_items)");
-                }
-
-                if (plan["camera_moves"] is { } moves)
-                {
-                    int n = 0;
-                    foreach (var (m, i) in List(moves, "camera_moves").Select((m, i) => (Obj(m, $"camera_moves[{i}]"), i)))
-                    {
-                        Call("camera_move", m, $"camera_moves[{i}]");
-                        n++;
-                    }
-                    made["camera_moves"] = n;
-                }
+                made["steps"] = said;
             }
-            catch (Exception e) when (e is not OperationCanceledException)
+
+            if (plan["motion"] is { } motion)
             {
-                throw new ArgumentException($"The plan's {part} failed: {e.Message.Replace(" Nothing was changed.", "", StringComparison.Ordinal)} Nothing was changed.", e);
+                var r = Call("animate", new JsonObject { ["moves"] = motion.DeepClone() }, "motion");
+                made["motion"] = r["moves"]?.AsArray().Count;
+                if (r["note"] is { } note) made["frames_note"] = note.DeepClone();
             }
-            var s0 = l.Scene;
-            made["scene_frames"] = new JsonArray(s0.FirstFrame, s0.LastFrame);
-            if (s0.CurrentCamera is { } current)
-                made["check"] = Shot.Check(l, current, Shot.Frames(s0.FirstFrame, s0.LastFrame, Math.Max(1, (s0.LastFrame - s0.FirstFrame) / 24.0)), 0.04);
-            return made;
-        }, cancel);
+
+            if (plan["camera"] is { } camera)
+            {
+                var cam = Obj(camera, "camera");
+                if (cam["position"] != null || cam["look_at"] != null || cam["zoom"] != null)
+                {
+                    part = "camera";
+                    var name = cam["camera"]?.GetValue<string>() ?? l.Scene.CurrentCamera?.Name ?? throw new ArgumentException("The scene has no camera.");
+                    foreach (var (key, _) in cam)
+                        if (key is not ("camera" or "position" or "look_at" or "zoom")) throw new ArgumentException($"camera with position or look_at has no \"{key}\" (give items to fit instead).");
+                    if (cam["zoom"] is { } zoom) Call("set_item", new JsonObject { ["item"] = name, ["zoom"] = zoom.DeepClone() }, "camera");
+                    if (cam["position"] is { } pos) Call("set_transform", new JsonObject { ["item"] = name, ["position"] = pos.DeepClone(), ["key"] = false }, "camera");
+                    if (cam["look_at"] is { } at)
+                        Call("look_at", at is JsonArray ? new JsonObject { ["item"] = name, ["point"] = at.DeepClone(), ["key"] = false }
+                            : new JsonObject { ["item"] = name, ["target"] = at.DeepClone(), ["key"] = false }, "camera");
+                    made["camera"] = name;
+                }
+                else made["camera"] = Call("frame_items", cam, "camera (frame_items)");
+            }
+
+            if (plan["camera_moves"] is { } moves)
+            {
+                int n = 0;
+                foreach (var (m, i) in List(moves, "camera_moves").Select((m, i) => (Obj(m, $"camera_moves[{i}]"), i)))
+                {
+                    Call("camera_move", m, $"camera_moves[{i}]");
+                    n++;
+                }
+                made["camera_moves"] = n;
+            }
+        }
+        catch (Exception e) when (e is not OperationCanceledException)
+        {
+            throw new ArgumentException($"The plan's {part} failed: {e.Message.Replace(" Nothing was changed.", "", StringComparison.Ordinal)} Nothing was changed.", e);
+        }
+        var s0 = l.Scene;
+        made["scene_frames"] = new JsonArray(s0.FirstFrame, s0.LastFrame);
+        if (s0.CurrentCamera is { } current)
+            made["check"] = Shot.Check(l, current, Shot.Frames(s0.FirstFrame, s0.LastFrame, Math.Max(1, (s0.LastFrame - s0.FirstFrame) / 24.0)), 0.04);
+        return made;
+    }
 
     [McpServerTool(Name = "frame_items", Destructive = true)]
     [Description("Places a camera so chosen items fill its picture with a margin, aimed at their middle, looking from a direction: by name (front, three_quarter, side, left, back, top, low) or [x, y, z] from the items toward the camera (default: from where the camera is now). At one frame (default the current), or over start to end: then it fits everywhere they go in that time from one place, or with follow true keys the camera every few frames to keep them framed as they move. Items: names, or \"all\" (every object but the ground). One undo step. Returns where it put the camera and how far it is.")]

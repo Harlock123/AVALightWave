@@ -188,3 +188,61 @@ public sealed class LoadFromSceneRequester : Requester
         }
     }
 }
+
+/// <summary>
+/// The shot wizards (Render › Turntable…, Product Shot…): an object, frames and (for a turntable) turns; the shot is
+/// built as one undo step through the same plans agents' build_scene runs, and its check said in the status line.
+/// </summary>
+public sealed class WizardRequester : Requester
+{
+    private readonly SceneDocument _document;
+    private readonly AVAModeler.Tools.Commands _commands;
+    private readonly AVALightWave.Mcp.WizardLook _look;
+
+    public ComboBox Object { get; }
+    public TextBox Frames { get; }
+    public TextBox? Turns { get; }
+
+    /// <summary>What the last Apply built (build_scene's result), or null.</summary>
+    public System.Text.Json.Nodes.JsonObject? Built { get; private set; }
+
+    public WizardRequester(SceneDocument document, AVAModeler.Tools.Commands commands, AVALightWave.Mcp.WizardLook look, ObjectItem? chosen)
+        : base(look == AVALightWave.Mcp.WizardLook.Turntable ? "Turntable" : "Product Shot")
+    {
+        (_document, _commands, _look) = (document, commands, look);
+        Rows.Children.Add(Heading(look == AVALightWave.Mcp.WizardLook.Turntable
+            ? "Spin an object on a turntable, lit from three sides, the camera framing it"
+            : "Stand an object on a pedestal under studio light, turning slowly as the camera pushes in"));
+        Rows.Children.Add(Label("Object"));
+        var names = document.Scene.Objects.Where(o => o.BaseMesh().Points.Count > 0).Select(o => o.Name).ToList();
+        Rows.Children.Add(Object = new ComboBox { ItemsSource = names, SelectedItem = chosen?.Name ?? names.FirstOrDefault(), FontSize = 12, Name = "WizardObject", HorizontalAlignment = HorizontalAlignment.Stretch });
+        Rows.Children.Add(Label("Frames"));
+        Rows.Children.Add(Frames = new TextBox { Text = "96", FontSize = 12, Name = "WizardFrames" });
+        if (look == AVALightWave.Mcp.WizardLook.Turntable)
+        {
+            Rows.Children.Add(Label("Turns"));
+            Rows.Children.Add(Turns = new TextBox { Text = "1", FontSize = 12, Name = "WizardTurns" });
+        }
+        Rows.Children.Add(new TextBlock { Text = "The scene's lights give way to the wizard's; one Ctrl+Z takes it all back.", Foreground = Look.Text, FontSize = 11, TextWrapping = TextWrapping.Wrap });
+        Finish();
+    }
+
+    public override bool Apply()
+    {
+        if (Object.SelectedItem is not string name) { Say("Choose an object (load or make one first)."); return false; }
+        if (Number(Frames) is not { } frames) return false;
+        double turns = 1;
+        if (Turns != null) { if (Number(Turns) is not { } t) return false; turns = t; }
+        try
+        {
+            string root = _document.Path is { } p ? Path.GetDirectoryName(p)! : Environment.CurrentDirectory;
+            Built = AVALightWave.Mcp.ShotWizards.Run(_commands, _document.Session, root, new AVALightWave.Mcp.WizardChoice(name, _look, (int)Math.Round(frames), turns));
+            return true;
+        }
+        catch (Exception e) when (e is ArgumentException or InvalidOperationException or ModelContextProtocol.McpException)
+        {
+            Say(e.Message);
+            return false;
+        }
+    }
+}

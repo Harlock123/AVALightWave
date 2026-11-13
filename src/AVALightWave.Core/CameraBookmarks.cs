@@ -4,7 +4,7 @@ using AVAModeler.Core;
 using AVAModeler.Layout;
 using AVAModeler.Scene;
 
-namespace AVALightWave.Core;
+namespace AVALightWave;
 
 /// <summary>A saved camera view: where a camera was, which way it looked and its zoom.</summary>
 public sealed record CameraBookmark(string Name, double[] Position, double[] Rotation, double Zoom)

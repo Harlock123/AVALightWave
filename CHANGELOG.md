@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Turntable and Product Shot wizards** (Render menu): an object on a turntable, or on a pedestal under studio
+  light with the camera pushing in, built in one undo step with no agent.
 - **Package Scene**: File › Package Scene (or as Zip) gathers the scene, its objects' files and every image it uses
   into one folder that opens on another machine; agents have `package_scene`.
 - **Camera bookmarks**: the Camera panel saves the camera's view under a name and puts it back with a press (keyed

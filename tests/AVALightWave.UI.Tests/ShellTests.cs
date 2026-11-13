@@ -288,7 +288,7 @@ public class ShellTests
         var start = cam.PositionAt(1);
         Ui.Find<TextBox>(panel, "BookmarkName").Text = "Start";
         Press(Ui.Find<Button>(panel, "SaveBookmark"));
-        Assert.Equal("Start", AVALightWave.Core.CameraBookmarks.List(w.Session.Scene).Single().Name);
+        Assert.Equal("Start", CameraBookmarks.List(w.Session.Scene).Single().Name);
         for (int i = 0; i < 3; i++) cam.Channels[i].SetConstant(7);
         w.Session.Scene.Notify();
         panel.Reshow();
@@ -308,6 +308,27 @@ public class ShellTests
         Assert.NotNull(r);
         Assert.True(File.Exists(Path.Combine(bench.Path, "scene package", "scene.avascene")));
         Assert.Contains("Packaged scene", w.Status);
+    }
+
+    [AvaloniaFact]
+    public void The_turntable_wizard_builds_a_turntable_in_one_step()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        w.Document.LoadObject(bench.Object("crate.lwo"));
+        var wizard = w.OpenWizard(AVALightWave.Mcp.WizardLook.Turntable)!;
+        wizard.Frames.Text = "24";
+        Assert.True(wizard.Apply(), wizard.Problem);
+        wizard.Close();
+        Ui.Pump();
+        Assert.NotNull(w.Session.Scene.Find("Turntable"));
+        Assert.Equal("Turntable", w.Session.History.UndoLabel);
+        Assert.Contains("Built the turntable", w.Status);
+        wizard = w.OpenWizard(AVALightWave.Mcp.WizardLook.Turntable)!;
+        wizard.Frames.Text = "5";
+        Assert.False(wizard.Apply());
+        Assert.Contains("12 to 3000", wizard.Problem);
+        wizard.Close();
     }
 
     private static void Press(Button b)
