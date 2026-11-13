@@ -105,7 +105,7 @@ internal sealed class Motion(LayoutSession l)
                 throw new ArgumentException($"A {kind} move has no \"{key}\". It takes {string.Join(", ", own.Concat(Common.Where(c => c != "kind")))}.");
         var item = Item(Text(m, "item") ?? throw new ArgumentException("item is needed: the item to move, by name."));
         var (start, end) = Span(m, extend);
-        var ease = Ease(m, kind);
+        var ease = Ease(m, kind, LightWaveTools.StyleOf(S)?.Ease);
         double every = Number(m, "every") ?? 2;
         if (!(every >= 0.25) || every > 100) throw new ArgumentException("every (frames between keys) must be from 0.25 to 100.");
         var aim = m["aim"] is { } a ? Target(a, item, "aim") : null;
@@ -577,7 +577,7 @@ internal sealed class Motion(LayoutSession l)
 
     private static int Count(JsonObject m, params string[] keys) => keys.Count(k => m[k] != null);
 
-    private static string Ease(JsonObject m, string kind)
+    private static string Ease(JsonObject m, string kind, string? style = null)
     {
         var e = Text(m, "ease")?.Trim().ToLowerInvariant();
         if (e == "smooth") e = "ease_in_out";
@@ -586,7 +586,7 @@ internal sealed class Motion(LayoutSession l)
             "spin" or "orbit" or "fade_in" or "fade_out" => "linear",
             "pop_in" => "overshoot",
             "pop_out" => "ease_in",
-            _ => "ease_in_out",
+            _ => style ?? "ease_in_out",
         };
         return Eases.Contains(e) ? e : throw new ArgumentException($"ease must be one of {string.Join(", ", Eases)}, not \"{e}\".");
     }

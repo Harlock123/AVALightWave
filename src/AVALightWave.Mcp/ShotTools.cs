@@ -29,14 +29,15 @@ public sealed partial class LightWaveTools
         "animate", "camera_move", "frame_items",
     ];
 
-    public static readonly IReadOnlyList<string> Rigs = ["three_point", "sun_and_sky", "studio", "night"];
+    public static readonly IReadOnlyList<string> Rigs = ["three_point", "sun_and_sky", "studio", "night", "noir", "golden_hour", "sci_fi", "cartoon"];
 
     [McpServerTool(Name = "build_scene", Destructive = true)]
     [Description("Builds a whole shot from one plan, as one undo step, all or nothing: if any part fails, the error names it and the scene is as it was. The plan's parts, all optional, run in this order: " +
         "settings (set_scene's arguments: first_frame, last_frame, fps, background_color, ambient_intensity, ao, environment, environment_lighting…); " +
         "objects (a list: each is make_object's arguments (with shape), build_object's (with steps), or add_object's (with file)); " +
-        "lights (a rig: \"three_point\", \"sun_and_sky\" (a warm sun and the built-in sky lighting the scene), \"studio\" (soft area lights and the built-in studio surroundings) or \"night\" (moonlight and a warm lamp), aimed at the objects and sized to them, replacing the scene's lights unless keep_lights is true; or a list of add_light's arguments; or {\"rig\": name, \"intensity\": factor, \"keep_lights\": true}); " +
+        "lights (a rig: \"three_point\", \"sun_and_sky\" (a warm sun and the built-in sky lighting the scene), \"studio\" (soft area lights and the built-in studio surroundings), \"night\" (moonlight and a warm lamp), \"noir\", \"golden_hour\", \"sci_fi\" or \"cartoon\", aimed at the objects and sized to them, replacing the scene's lights unless keep_lights is true; or a list of add_light's arguments; or {\"rig\": name, \"intensity\": factor, \"keep_lights\": true}); " +
         "steps (any scene calls, as {\"call\": name, \"args\": {...}}: set_item, set_key, add_null, set_particles, clone_item, set_object_surface…); " +
+        "style (a look after the lights: noir, product_commercial, cartoon, golden_hour or sci_fi, as apply_style gives it; its lights only when the plan has none); " +
         "motion (animate's moves); " +
         "camera (after the motion, so fitting sees where things go: frame_items' arguments, e.g. {\"items\": [\"Ball\"], \"from\": \"three_quarter\", \"start\": 1, \"end\": 90}, or {\"position\": [x, y, z], \"look_at\": item or [x, y, z], \"zoom\": z}); " +
         "camera_moves (a list of camera_move's arguments, last, from where camera put it). A motion move on the camera itself (track, say) runs before camera: place such a camera in steps instead. " +
@@ -52,7 +53,7 @@ public sealed partial class LightWaveTools
     /// </summary>
     public static JsonObject RunPlan(Commands c, LayoutSession l, string root, ILightWaveApp? app, JsonObject plan)
     {
-        var known = new[] { "settings", "objects", "lights", "camera", "steps", "motion", "camera_moves" };
+        var known = new[] { "settings", "objects", "lights", "style", "camera", "steps", "motion", "camera_moves" };
         foreach (var (key, _) in plan)
             if (!known.Contains(key)) throw new ArgumentException($"A plan has no \"{key}\". It has: {string.Join(", ", known)}.");
         var inline = new LightWaveTools(new InlineHost(root, c, l), app);
@@ -85,6 +86,12 @@ public sealed partial class LightWaveTools
             {
                 part = "lights";
                 made["lights"] = Lights(lights, l, calls);
+            }
+
+            if (plan["style"] is { } style)
+            {
+                part = "style";
+                made["style"] = ApplyStyleTo(c, l, root, style.GetValue<string>(), lights: plan["lights"] == null, surfaces: true, lens: true);
             }
 
             if (plan["steps"] is { } steps)
@@ -313,6 +320,42 @@ public sealed partial class LightWaveTools
                 Light("Moon", "distant", new Vec3(2, 3, 1.5), [150, 170, 255], 0.35);
                 Light("Lamp", "point", new Vec3(-1.2, 1.4, -1.2), [255, 190, 120], 1, more: new JsonObject { ["range"] = Math.Round(6 * size, 3), ["radius"] = Math.Round(0.05 * size, 4) });
                 calls.Call("set_scene", new JsonObject { ["ambient_intensity"] = 0.04, ["ambient_color"] = new JsonArray(120, 140, 220), ["background_color"] = new JsonArray(8, 10, 24) });
+                break;
+            case "noir":
+                // One hard key from high to the side, almost no fill: deep shadows on a black ground.
+                Light("Key", "spot", new Vec3(-2.5, 3.2, -1.2), [255, 255, 255], 1.4, more: new JsonObject { ["cone_angle"] = 28, ["edge_angle"] = 4 });
+                Light("Edge", "distant", new Vec3(1.5, 1.2, 3), [255, 255, 255], 0.25, shadows: false);
+                calls.Call("set_scene", new JsonObject { ["ambient_intensity"] = 0.02, ["background_color"] = new JsonArray(0, 0, 0), ["gradient"] = false });
+                break;
+            case "golden_hour":
+                // A low warm sun raking across, a cool sky fill, a sunset sky.
+                Light("Sun", "distant", new Vec3(-3, 0.75, -1.2), [255, 196, 120], 1.3);
+                Light("Sky", "distant", new Vec3(1.5, 3, 2), [150, 175, 230], 0.4, shadows: false);
+                calls.Call("set_scene", new JsonObject
+                {
+                    ["ambient_intensity"] = 0.08, ["ambient_color"] = new JsonArray(255, 210, 170), ["gradient"] = true,
+                    ["gradient_top"] = new JsonArray(80, 110, 170), ["gradient_bottom"] = new JsonArray(250, 170, 100),
+                });
+                break;
+            case "sci_fi":
+                // Cyan and magenta rims, a dim cool key, dark teal haze.
+                Light("Key", "distant", new Vec3(-1.5, 2.5, -2.5), [180, 200, 255], 0.55);
+                Light("Cyan Rim", "point", new Vec3(2.2, 1.2, 2.2), [40, 230, 255], 1.6, shadows: false, more: new JsonObject { ["range"] = Math.Round(8 * size, 3) });
+                Light("Magenta Rim", "point", new Vec3(-2.2, 1.0, 2.2), [255, 40, 200], 1.4, shadows: false, more: new JsonObject { ["range"] = Math.Round(8 * size, 3) });
+                calls.Call("set_scene", new JsonObject
+                {
+                    ["ambient_intensity"] = 0.05, ["background_color"] = new JsonArray(4, 12, 18), ["gradient"] = false,
+                    ["fog"] = "linear", ["fog_min"] = Math.Round(4 * size, 3), ["fog_max"] = Math.Round(30 * size, 3), ["fog_color"] = new JsonArray(6, 22, 30),
+                });
+                break;
+            case "cartoon":
+                // Bright and even: a strong key and fill, high ambient, a clear sky.
+                Light("Key", "distant", new Vec3(-2, 3, -2.5), [255, 255, 250], 1.0);
+                Light("Fill", "distant", new Vec3(2.5, 1, -2), [255, 255, 255], 0.55, shadows: false);
+                calls.Call("set_scene", new JsonObject
+                {
+                    ["ambient_intensity"] = 0.35, ["gradient"] = true, ["gradient_top"] = new JsonArray(110, 180, 255), ["gradient_bottom"] = new JsonArray(220, 240, 255),
+                });
                 break;
         }
         return new JsonObject { ["rig"] = rig, ["lights"] = made };
