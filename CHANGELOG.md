@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **`review_shot`** for agents: the shot's check and a contact sheet with numbered frames in one call, so an agent
+  looks at its work before reporting.
 - **Exact shot checks**: `check_shot` now looks at objects' real (deformed) shapes rather than their boxes: what's
   in the picture, how low an object goes over the ground, and whether one passes into another.
 - **Turntable and Product Shot wizards** (Render menu): an object on a turntable, or on a pedestal under studio

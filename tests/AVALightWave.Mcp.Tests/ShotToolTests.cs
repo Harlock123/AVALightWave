@@ -151,4 +151,25 @@ public class ShotToolTests
         r = await s.Client.Json("check_shot", new { every = 30 });
         Assert.Contains(r["problems"]!.AsArray(), p => (string?)p!["kind"] == "below_ground" && (string?)p["item"] == "Turned");
     }
+
+    [Fact]
+    public async Task Review_shot_gives_the_check_and_a_numbered_contact_sheet()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("build_scene", new { plan = BouncePlan });
+        int steps = b.Host.Layout.History.Count;
+        var r = await s.Client.Call("review_shot", new { frames = 6, width = 120 });
+        Assert.True(r.IsError != true, Text(r));
+        var png = r.Content.OfType<ImageContentBlock>().Single().DecodedData.ToArray();
+        var image = AVAModeler.Core.TextureImages.Decode(png)!;
+        Assert.Equal(3 * 120 + 4 * 3, image.Width); // up to four a row: three frames across two rows
+        Assert.True(Colours(png) > 50);
+        var about = (System.Text.Json.Nodes.JsonObject)System.Text.Json.Nodes.JsonNode.Parse(Text(r))!;
+        Assert.Equal([1.0, 19, 37, 54, 72, 90], about["frames"]!.AsArray().Select(f => (double)f!));
+        Assert.NotNull(about["check"]!["problems"]);
+        Assert.Equal(steps, b.Host.Layout.History.Count);
+        if (Environment.GetEnvironmentVariable("AVALIGHTWAVE_SHOT_OUT") is { Length: > 0 } dir) File.WriteAllBytes(Path.Combine(dir, "review.png"), png);
+        Assert.Contains("frames must be", await s.Client.Fails("review_shot", new { frames = 40 }));
+    }
 }
