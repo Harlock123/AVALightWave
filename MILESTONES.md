@@ -56,7 +56,7 @@ toward the other body so equal boxes stack).
 
 ## Milestone C: characters
 
-**Status:** stage 1 done (the engine's `SceneAudio` and MP4 sound, AVA Modeler fb28510 and d90fb7d; WAV reading,
+**Status:** stages 1 and 2 done (action clips in Core's `ActionClips`, kept in `avalightwave.actions`; the engine's `SceneAudio` and MP4 sound, AVA Modeler fb28510 and d90fb7d; WAV reading,
 the waveform and OpenAL playback in AVALightWave, behind `ISoundOutput` so tests stay silent).
 
 1. **Audio track (engine scene data, app UI).** A scene can have one sound file (WAV). It is drawn as a waveform

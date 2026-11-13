@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Action clips** for agents: `save_action` keeps keys over items and their bones from a span (in the scene and
+  in .action files); `place_action` puts them back at any frame, at a speed, looped, blended, or onto another
+  character with the same bones.
 - **A sound track**: the Scene panel loads a WAV file; its waveform shows under the timeline, it plays with the
   timeline, scrubbing and the preview, and MP4 movies carry it (from the engine). Agents have `set_audio`.
 - **Expressions** (from the engine): Motion Options' Expression and `add_motion_modifier` kind `expression` set a
