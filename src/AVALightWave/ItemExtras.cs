@@ -91,6 +91,35 @@ public sealed partial class ItemsPanel
         }
     }
 
+    /// <summary>A camera's bookmarks: save this view under a name, and go back to any saved one (keyed if the camera is animated).</summary>
+    private void Bookmarks(CameraItem cam, ItemPropertiesPanel panel)
+    {
+        var s = Doc.Session;
+        panel.Children.Add(Section("Bookmarks"));
+        var name = new TextBox { Name = "BookmarkName", PlaceholderText = "Name", FontSize = 11, MinWidth = 120 };
+        var save = Look.MakeButton("Save View", () =>
+        {
+            var n = string.IsNullOrWhiteSpace(name.Text) ? $"View {AVALightWave.Core.CameraBookmarks.List(s.Scene).Count + 1}" : name.Text!;
+            Try(() => { AVALightWave.Core.CameraBookmarks.Save(s, n, cam, s.Frame); Window.SetStatus($"Saved the view as \"{n}\"."); });
+        }, "Keep where this camera is, which way it looks and its zoom, under the name");
+        save.Name = "SaveBookmark";
+        var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 4, Margin = new Thickness(0, 2) };
+        row.Children.Add(name);
+        row.Children.Add(save);
+        panel.Children.Add(row);
+        foreach (var b in AVALightWave.Core.CameraBookmarks.List(s.Scene))
+        {
+            var go = Look.MakeButton(b.Name, () => Try(() => { AVALightWave.Core.CameraBookmarks.Recall(s, b.Name, cam, s.Frame); Window.SetStatus($"{cam.Name} is at \"{b.Name}\"."); }),
+                $"Put {cam.Name} at this view (keyed at this frame if it's animated)");
+            go.Name = "Bookmark_" + b.Name;
+            var remove = Look.MakeButton("×", () => Try(() => AVALightWave.Core.CameraBookmarks.Remove(s, b.Name)), $"Remove the bookmark \"{b.Name}\"");
+            var line = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, Margin = new Thickness(0, 1) };
+            line.Children.Add(go);
+            line.Children.Add(remove);
+            panel.Children.Add(line);
+        }
+    }
+
     private void Dissolve(ObjectItem o, ItemPropertiesPanel panel)
     {
         var s = Doc.Session;

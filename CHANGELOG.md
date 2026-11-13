@@ -13,6 +13,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Camera bookmarks**: the Camera panel saves the camera's view under a name and puts it back with a press (keyed
+  when the camera is animated); they're kept in .avascene scenes, and agents have `camera_bookmark`. From AVA
+  Modeler's engine, `Scene.Extras` keeps them with the scene.
 - **Agents make objects in the scene** (the first stage of `AI_SCENES.md`, scenes from a description). `make_object`
   makes a box, ball, cylinder, cone, disc, torus, ground, steps or extruded text with a surface of its own, standing on
   its base; `build_object` builds anything else from the engine's modeling calls (AVA Modeler's tools, as steps, on an

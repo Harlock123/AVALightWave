@@ -276,6 +276,28 @@ public class ShellTests
         Assert.Equal("Move Camera", w.Session.History.UndoLabel);
     }
 
+    [AvaloniaFact]
+    public void The_camera_panel_saves_and_recalls_bookmarks()
+    {
+        var w = Ui.Open();
+        var cam = w.Session.Scene.CurrentCamera!;
+        w.Session.Select(cam);
+        w.ShowPanel("Camera");
+        Ui.Pump();
+        var panel = (ItemsPanel)w.CurrentPanel!;
+        var start = cam.PositionAt(1);
+        Ui.Find<TextBox>(panel, "BookmarkName").Text = "Start";
+        Press(Ui.Find<Button>(panel, "SaveBookmark"));
+        Assert.Equal("Start", AVALightWave.Core.CameraBookmarks.List(w.Session.Scene).Single().Name);
+        for (int i = 0; i < 3; i++) cam.Channels[i].SetConstant(7);
+        w.Session.Scene.Notify();
+        panel.Reshow();
+        Ui.Pump();
+        Press(Ui.Find<Button>(w.CurrentPanel!, "Bookmark_Start"));
+        Assert.Equal(start, cam.PositionAt(1));
+        Assert.Contains("is at \"Start\"", w.Status);
+    }
+
     private static void Press(Button b)
     {
         b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

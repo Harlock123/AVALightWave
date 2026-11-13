@@ -224,6 +224,7 @@ public sealed partial class ItemsPanel : LayoutPanel
     private void Extras(SceneItem item, ItemPropertiesPanel panel)
     {
         if (item is LightItem light) LightEffects(light, panel);
+        if (item is CameraItem cam) Bookmarks(cam, panel);
         if (item is not ObjectItem o) return;
         var file = o.SourcePath ?? o.Document?.FilePath;
         panel.Children.Add(new TextBlock { Text = "File", FontWeight = FontWeight.Bold, Foreground = Look.Text, Margin = new Thickness(0, 8, 0, 0) });
