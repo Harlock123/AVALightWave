@@ -56,6 +56,9 @@ toward the other body so equal boxes stack).
 
 ## Milestone C: characters
 
+**Status:** stage 1 done (the engine's `SceneAudio` and MP4 sound, AVA Modeler fb28510 and d90fb7d; WAV reading,
+the waveform and OpenAL playback in AVALightWave, behind `ISoundOutput` so tests stay silent).
+
 1. **Audio track (engine scene data, app UI).** A scene can have one sound file (WAV). It is drawn as a waveform
    under the dope sheet and the graph editor, and plays while scrubbing and previewing. render_animation's movie is
    joined with it by ffmpeg. The `set_audio` tool sets it.

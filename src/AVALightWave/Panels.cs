@@ -87,6 +87,37 @@ public sealed class ScenePanel : LayoutPanel
             Look.MakeButton("Load Scene…", () => _ = Window.LoadSceneDialog(), "Open a .lws or .avascene (Ctrl+O)"),
             Look.MakeButton("Save Scene", () => _ = Window.SaveScene(false), "Save (Ctrl+S)"),
             Look.MakeButton("Scene Editor", () => Window.ShowBottom(BottomTab.SceneEditor), "The items' hierarchy, visibility, locks and keys (E)")));
+        Sound(s);
+    }
+
+    /// <summary>The sound track: its file, the frame it starts at and its volume; Load and Remove.</summary>
+    private void Sound(Scene s)
+    {
+        Children.Add(Heading("Sound"));
+        var a = s.Audio;
+        if (a.On)
+        {
+            var sound = SceneSound.Of(s);
+            Children.Add(Note(Path.GetFileName(a.Path) + (sound != null ? $" ({sound.Seconds:0.##} s, {sound.SampleRate} Hz)" : " (can't be read)")));
+            Children.Add(Label("Starts at frame"));
+            Children.Add(NumberBox(a.StartFrame ?? s.FirstFrame, v => Change("Sound Start", a with { StartFrame = v }), "SoundStart"));
+            Children.Add(Label("Volume (0 to 2)"));
+            Children.Add(NumberBox(a.Volume, v => Change("Sound Volume", a with { Volume = v }), "SoundVolume"));
+        }
+        else Children.Add(Note("None: a WAV file plays with the timeline and the preview, shows its waveform under the timeline, and goes into MP4 movies."));
+        Children.Add(Buttons(
+            Look.MakeButton(a.On ? "Change Sound…" : "Load Sound…", () => _ = Window.LoadSoundDialog(), "A WAV file for the scene's sound track"),
+            Look.MakeButton("Remove Sound", () => { if (s.Audio.On) SceneSound.Set(Doc.Session, null); }, "Take the sound track off")));
+    }
+
+    private void Change(string label, SceneAudio audio)
+    {
+        try
+        {
+            var next = audio.Checked();
+            Doc.Session.Edit(label, () => { Doc.Scene.Audio = next; Doc.Scene.Notify(); });
+        }
+        catch (ArgumentException e) { Window.SetStatus(e.Message); }
     }
 
     private void Frames(int first, int last)

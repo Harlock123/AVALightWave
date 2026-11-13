@@ -354,6 +354,32 @@ public class ShellTests
         Assert.True(ball.Channels[1].Keys.Count > 30);
     }
 
+    [AvaloniaFact]
+    public void A_sound_track_shows_and_plays_with_the_timeline_and_the_preview()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        var path = bench.File("voice.wav");
+        File.WriteAllBytes(path, WavSound.Write(Enumerable.Range(0, 8000 * 2).Select(i => (float)(0.4 * Math.Sin(i * 0.1))).ToArray(), 8000));
+        Assert.False(w.Wave.IsVisible);
+        Assert.True(w.LoadSound(path));
+        Ui.Pump();
+        Assert.True(w.Wave.IsVisible);
+        var sound = (SilentSound)w.Sound;
+        w.Session.SetFrame(31);
+        w.PlayOrStop();
+        Assert.True(w.Playing);
+        Assert.Equal(1, sound.Played[^1].From, 6); // a second in, at frame 31
+        Assert.Null(sound.Played[^1].Seconds);
+        w.PlayOrStop();
+        Assert.Equal(1, sound.Stops);
+        w.ShowPanel("Scene");
+        Ui.Pump();
+        Assert.Contains("voice.wav", string.Join(" ", Avalonia.LogicalTree.LogicalExtensions.GetLogicalDescendants(w.CurrentPanel!).OfType<TextBlock>().Select(t => t.Text)));
+        Assert.False(w.LoadSound(bench.Object("crate.lwo")));
+        Assert.Contains("Can't use crate.lwo", w.Status);
+    }
+
     private static void Press(Button b)
     {
         b.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(Button.ClickEvent));

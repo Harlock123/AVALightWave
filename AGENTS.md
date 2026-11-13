@@ -150,6 +150,8 @@ python3 tools/make_icon.py                        # redraws the icon
 - **Macros run in the engine's sandbox.** Scene macros go through `LuaSandbox` (no bare MoonSharp `Script`), are one
   undo step each, and agents' macros keep their paths in the working folder (`LayoutMacros.Run`'s guard). The person's
   macro folder is `macros` in the app-data folder; a test window has none unless a test gives a temporary one.
+- **Tests make no sound.** The window plays the sound track through `ISoundOutput`: `OpenAlSound` in the app, `SilentSound`
+  (which records what it was asked) in test windows.
 - **Tests don't use the PATH's ffmpeg.** The preview window's `PickFile` and `Movies`, and the farm's `Encoder`, are
   test hooks.
 

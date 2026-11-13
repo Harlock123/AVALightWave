@@ -298,13 +298,18 @@ public sealed class PreviewWindow : Window
         _timer.Interval = p.FrameDuration > TimeSpan.Zero ? p.FrameDuration : TimeSpan.FromMilliseconds(33);
         _timer.Start();
         _play.Content = "Stop";
+        Sound?.Invoke(p.Frames[Index]);
     }
 
     public void Stop()
     {
         _timer.Stop();
         _play.Content = "Play";
+        Sound?.Invoke(null);
     }
+
+    /// <summary>Plays the scene's sound from a scene frame as the preview plays (null stops it); the window sets it.</summary>
+    public Action<double?>? Sound { get; set; }
 
     /// <summary>The player's tick: the next frame, wrapping round with Loop on, else stopping on the last.</summary>
     internal void Tick()
@@ -316,6 +321,7 @@ public sealed class PreviewWindow : Window
             return;
         }
         Show((Index + 1) % p.Count);
+        if (Index == 0) Sound?.Invoke(p.Frames[0]);
     }
 
     /// <summary>Saves the frames made as PNGs, an MP4 or a GIF, asking where; returns what it says in the status line.</summary>

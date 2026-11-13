@@ -43,4 +43,23 @@ public class ConvenienceToolTests
         Assert.Contains("outside the working folder", await s.Client.Fails("package_scene", new { folder = "../away" }));
         await s.Client.Json("package_scene", new { folder = "packages/shot", overwrite = true });
     }
+
+    [Fact]
+    public async Task Set_audio_sets_the_sound_track_and_can_fit_the_scene()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        var tone = Enumerable.Range(0, 8000 * 3).Select(i => (float)(0.4 * Math.Sin(i * 0.2))).ToArray();
+        File.WriteAllBytes(b.Folder.File("voice.wav"), WavSound.Write(tone, 8000));
+        var r = await s.Client.Json("set_audio", new { file = "voice.wav", start_frame = 11, fit_scene = true });
+        Assert.Equal(3, (double)r["seconds"]!, 3);
+        Assert.Equal(100, b.Scene.LastFrame);
+        Assert.Equal(11, b.Scene.Audio.StartFrame);
+        Assert.Equal("Agent: set the sound", b.Host.Layout.History.UndoLabel);
+        Assert.Contains("no file", await s.Client.Fails("set_audio", new { file = "none.wav" }));
+        File.WriteAllBytes(b.Folder.File("text.wav"), "hello"u8.ToArray());
+        Assert.Contains("isn't a WAV", await s.Client.Fails("set_audio", new { file = "text.wav" }));
+        await s.Client.Json("set_audio", new { off = true });
+        Assert.False(b.Scene.Audio.On);
+    }
 }

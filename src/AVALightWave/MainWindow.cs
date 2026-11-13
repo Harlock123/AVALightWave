@@ -71,6 +71,9 @@ public sealed class MainWindow : Window
     public SceneEditor SceneEditor { get; }
     public KeyMarks Marks { get; }
 
+    /// <summary>The sound track's waveform under the timeline (shown when the scene has one).</summary>
+    public WaveStrip Wave { get; }
+
     /// <summary>The settings shared with the engine (the AI Chat's, agents', the hub's, recent scenes).</summary>
     internal AVAModeler.Modeler.UI.Preferences Preferences { get; }
 
@@ -147,6 +150,7 @@ public sealed class MainWindow : Window
         DopeSheet = new DopeSheetPanel(Session);
         SceneEditor = new SceneEditor(Document);
         Marks = new KeyMarks(Session) { Height = 14 };
+        Wave = new WaveStrip(Session) { Height = 22 };
 
         Hub = new LightWaveHub(Document, work => Dispatcher.UIThread.InvokeAsync(work).GetTask()) { ModelerSetting = options.ModelerPath };
         Hub.Said += SetStatus;
@@ -211,7 +215,13 @@ public sealed class MainWindow : Window
             RefreshItems();
             if (CurrentPanel is ItemsPanel items && !items.IsKeyboardFocusWithin) items.Reshow();
         };
-        _timeline.ValueChanged += (_, _) => { if (!_refreshing) Session.SetFrame(Math.Round(_timeline.Value)); };
+        _timeline.ValueChanged += (_, _) =>
+        {
+            if (_refreshing) return;
+            Session.SetFrame(Math.Round(_timeline.Value));
+            // Scrubbing: a moment of the sound at the frame.
+            if (!_player.IsEnabled) PlaySound(Session.Frame, 0.12);
+        };
         _frameBox.KeyDown += (_, e) =>
         {
             if (e.Key == Key.Enter && double.TryParse(_frameBox.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out var f)) Session.SetFrame(Math.Round(f));
@@ -226,7 +236,9 @@ public sealed class MainWindow : Window
         _player.Tick += (_, _) =>
         {
             var s = Session.Scene;
-            Session.SetFrame(Session.Frame + 1 > s.LastFrame ? s.FirstFrame : Session.Frame + 1);
+            bool wrap = Session.Frame + 1 > s.LastFrame;
+            Session.SetFrame(wrap ? s.FirstFrame : Session.Frame + 1);
+            if (wrap) PlaySound(s.FirstFrame, null);
         };
         AttachedToVisualTree += (_, _) => Dispatcher.UIThread.Post(Viewports.FitAll, DispatcherPriority.Background);
         Mode = EditMode.Objects;
@@ -256,7 +268,8 @@ public sealed class MainWindow : Window
         }
         Closed += (_, _) =>
         {
-            _player.Stop();
+            StopPlaying();
+            _sound?.Dispose();
             _autosaveTimer.Stop();
             _hubTimer.Stop();
             _preview?.Close();
@@ -374,7 +387,7 @@ public sealed class MainWindow : Window
         DockPanel.SetDock(frame, Dock.Left);
         row.Children.Add(transport);
         row.Children.Add(frame);
-        row.Children.Add(new StackPanel { Margin = new Thickness(6, 0), Children = { _timeline, Marks } });
+        row.Children.Add(new StackPanel { Margin = new Thickness(6, 0), Children = { _timeline, Marks, Wave } });
         return row;
     }
 
@@ -563,6 +576,8 @@ public sealed class MainWindow : Window
         else SelectInChooser();
         _hubLight.Text = Hub.Status.Text;
         Marks.InvalidateVisual();
+        Wave.InvalidateVisual();
+        Wave.IsVisible = Session.Scene.Audio.On;
         Viewports.InvalidateViews();
         CurrentPanel?.Refresh();
         UpdateTitle();
@@ -898,9 +913,41 @@ public sealed class MainWindow : Window
 
     private void TogglePlay()
     {
-        if (_player.IsEnabled) { _player.Stop(); return; }
+        if (_player.IsEnabled) { StopPlaying(); return; }
         _player.Interval = TimeSpan.FromSeconds(1 / Math.Max(1, Session.Scene.FramesPerSecond));
         _player.Start();
+        PlaySound(Session.Frame, null);
+    }
+
+    /// <summary>Whether the timeline is playing.</summary>
+    public bool Playing => _player.IsEnabled;
+
+    /// <summary>Plays or stops the timeline (Space), with the sound track.</summary>
+    public void PlayOrStop() => TogglePlay();
+
+    private void StopPlaying()
+    {
+        _player.Stop();
+        _sound?.Stop();
+    }
+
+    private ISoundOutput? _sound;
+
+    /// <summary>Where the sound track plays: OpenAL in the app, silence (remembering what it was asked) in tests.</summary>
+    public ISoundOutput Sound
+    {
+        get => _sound ??= _forTests ? new SilentSound() : new OpenAlSound();
+        set => _sound = value;
+    }
+
+    /// <summary>Plays the scene's sound from a frame, for so many seconds (or on), if it has one.</summary>
+    private void PlaySound(double frame, double? seconds)
+    {
+        var s = Session.Scene;
+        if (SceneSound.Of(s) is not { } sound) return;
+        double at = SceneSound.SecondsAt(s, frame);
+        if (seconds != null && (at < 0 || at > sound.Seconds)) return;
+        Sound.Play(sound, at, seconds, s.Audio.Volume);
     }
 
     /// <summary>Numeric (N): the chosen item's numbers in a requester.</summary>
@@ -1012,7 +1059,7 @@ public sealed class MainWindow : Window
     /// </summary>
     public PreviewWindow MakePreview()
     {
-        _player.Stop();
+        StopPlaying();
         if (_preview is { IsVisible: true })
         {
             _preview.Activate();
@@ -1027,8 +1074,9 @@ public sealed class MainWindow : Window
         var w = _preview = new PreviewWindow(Session, settings, ActiveViewCamera, PickFile)
         {
             PlayWhenMade = !_forTests,
+            Sound = frame => { if (frame is { } f) PlaySound(f, null); else _sound?.Stop(); },
         };
-        w.Closed += (_, _) => { if (_preview == w) _preview = null; };
+        w.Closed += (_, _) => { _sound?.Stop(); if (_preview == w) _preview = null; };
         w.Show(this);
         w.Make();
         return w;
@@ -1166,6 +1214,35 @@ public sealed class MainWindow : Window
         {
             SetStatus($"Can't save: {e.Message}");
             if (!_forTests) await Dialogs.Message(this, "Can't save", e.Message);
+        }
+    }
+
+    /// <summary>The Scene panel's Load Sound: a WAV file for the scene's sound track (one undo step).</summary>
+    public async Task LoadSoundDialog()
+    {
+        var files = await StorageProvider.OpenFilePickerAsync(new Avalonia.Platform.Storage.FilePickerOpenOptions
+        {
+            Title = "Load a sound track", AllowMultiple = false,
+            FileTypeFilter = [new Avalonia.Platform.Storage.FilePickerFileType("WAV sound") { Patterns = ["*.wav"] }],
+        });
+        if (files.Count == 0 || files[0].TryGetLocalPath() is not { } path) return;
+        LoadSound(path);
+    }
+
+    /// <summary>Sets the scene's sound track to a WAV file; says why not if it can't be read.</summary>
+    public bool LoadSound(string path)
+    {
+        try
+        {
+            SceneSound.Set(Session, path);
+            var sound = SceneSound.Of(Session.Scene)!;
+            SetStatus($"The sound track is {Path.GetFileName(path)} ({sound.Seconds:0.##} s).");
+            return true;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetStatus($"Can't use {Path.GetFileName(path)} as the sound track: {e.Message}");
+            return false;
         }
     }
 
@@ -1418,6 +1495,36 @@ public sealed class MainWindow : Window
 }
 
 /// <summary>The strip under the timeline: a mark at every frame the chosen item has a key.</summary>
+/// <summary>The sound track's waveform across the scene's frames, lined up with the timeline, the current frame marked.</summary>
+public sealed class WaveStrip(LayoutSession session) : Control
+{
+    public override void Render(DrawingContext dc)
+    {
+        var s = session.Scene;
+        IsVisible = s.Audio.On;
+        if (!s.Audio.On) return;
+        dc.FillRectangle(new SolidColorBrush(Color.FromRgb(36, 40, 46)), new Rect(Bounds.Size));
+        double inset = 10, width = Math.Max(1, Bounds.Width - 2 * inset), mid = Bounds.Height / 2;
+        double first = s.FirstFrame, last = Math.Max(s.LastFrame, s.FirstFrame + 1);
+        if (SceneSound.Of(s) is not { } sound)
+        {
+            dc.DrawText(new FormattedText("The sound file can't be read: " + Path.GetFileName(s.Audio.Path), System.Globalization.CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, Typeface.Default, 10, Brushes.Orange), new Point(inset, 3));
+            return;
+        }
+        int columns = (int)width;
+        var peaks = sound.Peaks(SceneSound.SecondsAt(s, first), SceneSound.SecondsAt(s, last), columns);
+        var pen = new Pen(new SolidColorBrush(Color.FromRgb(110, 190, 240)), 1);
+        for (int i = 0; i < columns; i++)
+        {
+            double h = Math.Max(0.5, peaks[i] * (mid - 1) * Math.Min(2, s.Audio.Volume));
+            dc.DrawLine(pen, new Point(inset + i + 0.5, mid - h), new Point(inset + i + 0.5, mid + h));
+        }
+        double x = inset + (session.Frame - first) / (last - first) * width;
+        dc.DrawLine(new Pen(Brushes.White, 1), new Point(x, 0), new Point(x, Bounds.Height));
+    }
+}
+
 public sealed class KeyMarks(LayoutSession session) : Control
 {
     public override void Render(DrawingContext dc)

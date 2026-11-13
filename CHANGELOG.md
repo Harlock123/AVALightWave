@@ -13,6 +13,8 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **A sound track**: the Scene panel loads a WAV file; its waveform shows under the timeline, it plays with the
+  timeline, scrubbing and the preview, and MP4 movies carry it (from the engine). Agents have `set_audio`.
 - **Expressions** (from the engine): Motion Options' Expression and `add_motion_modifier` kind `expression` set a
   channel from a formula of the frame, time and other items' channels, e.g. a wheel turning as its car rolls.
 - **Rigid-body physics** (from the engine): objects fall, bounce, slide, tumble and stack, set in the Objects panel or
