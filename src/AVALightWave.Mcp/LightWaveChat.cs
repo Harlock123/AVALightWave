@@ -13,7 +13,7 @@ public static class LightWaveChat
     /// <summary>The core tools for a small local model: reading the scene, loading objects, lights, camera, keys and a look.</summary>
     public static readonly IReadOnlyList<string> CoreTools =
     [
-        "get_scene", "add_object", "make_object", "add_light", "add_null", "set_item", "set_transform", "look_at", "set_key",
+        "get_scene", "add_object", "make_object", "add_light", "add_null", "set_item", "set_transform", "look_at", "set_key", "animate", "camera_move",
         "remove_item", "set_scene", "undo_scene", "render_scene_view", "render_scene", "save_scene",
     ];
 

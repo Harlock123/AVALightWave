@@ -20,6 +20,10 @@ All notable changes to AVALightWave are recorded here. The format follows
   `set_object_surface` and `get_object_surfaces` change and list its looks; `list_modeling_tools` and
   `describe_modeling_tool` say what the steps can use. Each is one undo step, and a failing step changes nothing. The
   AI Chat can make objects too.
+- **Motion in a phrase for agents** (stage 2): `animate` turns a list of moves (move, turn, grow, bounce, spin, orbit,
+  sway, bob, shake, pop in and out, fade in and out, through points, track, dolly, truck, crane, push in, follow) into
+  ordinary keys, with eases and moves that follow or run with each other, all as one undo step; `camera_move` gives
+  the camera a shot that keeps its target in view, or a handheld wobble.
 - **What the AI Chat uses**, shown as it's used (from the engine): a line under the input with the chat's tokens and
   estimated cost, updated while a request runs; a tag after each turn with its requests, tokens, pictures and
   estimate; and in Setup… the prices (changeable), today's and this month's totals with Reset, and a budget that

@@ -1,6 +1,9 @@
 # Milestone: scenes from a description
 
-**Status (12 November 2026):** written up; started.
+**Status (12 November 2026):** under way. Stage 1 done: `make_object` (nine shapes), `build_object`, `edit_object`,
+`set_object_surface`, `get_object_surfaces` and the two modeling-tool lists, on the engine's tools through an
+in-process caller (`EngineCalls.cs`). Stage 2 done: `animate` (twenty kinds, in `Motion.cs`) and `camera_move`;
+a `with` move lasts as long as the one it runs with, and handheld is a jitter modifier rather than keys.
 
 AVALightWave already serves agents its Layout-only MCP server: 64 tools and 12 recipes, live in the open window
 (`AVALightWave --mcp --attach`) or headless (`--mcp`). An agent can stage, light, animate and render, but only objects
