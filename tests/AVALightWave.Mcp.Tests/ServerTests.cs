@@ -36,7 +36,7 @@ public class ServerTests
         Assert.Contains("save_object", tools.Single(t => t.Name == "save_scene").Description);
         Assert.Contains("no Modeler layers", tools.Single(t => t.Name == "set_morph").Description);
         var prompts = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Select(p => p.Name).ToList();
-        Assert.Equal(["camera_flyby", "clone_stagger", "composite_shot", "follow_and_jitter", "light_beams", "light_sweep", "morph_and_macro", "object_turntable", "render_on_farm", "rig_from_skelegons", "stage_object", "three_point_lighting"], prompts.Order());
+        Assert.Equal(["ball_from_nothing", "camera_flyby", "clone_stagger", "composite_shot", "dancing_shapes", "domino_run", "follow_and_jitter", "light_beams", "light_sweep", "morph_and_macro", "object_turntable", "product_reveal", "render_on_farm", "rig_from_skelegons", "rocket_launch", "solar_system", "stage_object", "three_point_lighting"], prompts.Order());
         // AVA Modeler's own server is as it was.
         Assert.Contains(ModelerServer.Definitions(), t => t.Name == "run_tool");
     }

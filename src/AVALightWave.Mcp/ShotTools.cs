@@ -36,9 +36,10 @@ public sealed partial class LightWaveTools
         "settings (set_scene's arguments: first_frame, last_frame, fps, background_color, ambient_intensity, ao, environment, environment_lighting…); " +
         "objects (a list: each is make_object's arguments (with shape), build_object's (with steps), or add_object's (with file)); " +
         "lights (a rig: \"three_point\", \"sun_and_sky\" (a warm sun and the built-in sky lighting the scene), \"studio\" (soft area lights and the built-in studio surroundings) or \"night\" (moonlight and a warm lamp), aimed at the objects and sized to them, replacing the scene's lights unless keep_lights is true; or a list of add_light's arguments; or {\"rig\": name, \"intensity\": factor, \"keep_lights\": true}); " +
-        "camera (frame_items' arguments to fit items, e.g. {\"items\": [\"Ball\"], \"from\": \"three_quarter\"}, or {\"position\": [x, y, z], \"look_at\": item or [x, y, z], \"zoom\": z}); " +
         "steps (any scene calls, as {\"call\": name, \"args\": {...}}: set_item, set_key, add_null, set_particles, clone_item, set_object_surface…); " +
-        "motion (animate's moves); camera_moves (a list of camera_move's arguments). " +
+        "motion (animate's moves); " +
+        "camera (after the motion, so fitting sees where things go: frame_items' arguments, e.g. {\"items\": [\"Ball\"], \"from\": \"three_quarter\", \"start\": 1, \"end\": 90}, or {\"position\": [x, y, z], \"look_at\": item or [x, y, z], \"zoom\": z}); " +
+        "camera_moves (a list of camera_move's arguments, last, from where camera put it). A motion move on the camera itself (track, say) runs before camera: place such a camera in steps instead. " +
         "Start with new_scene for a clean slate. Returns what was made, then check_shot's look at the result (problems to fix before rendering).")]
     public Task<string> BuildScene(
         [Description("The plan: {\"settings\": {...}, \"objects\": [...], \"lights\": ..., \"camera\": {...}, \"steps\": [...], \"motion\": [...], \"camera_moves\": [...]}.")] JsonObject plan,
@@ -80,25 +81,6 @@ public sealed partial class LightWaveTools
                     made["lights"] = Lights(lights, l, calls);
                 }
 
-                if (plan["camera"] is { } camera)
-                {
-                    var cam = Obj(camera, "camera");
-                    if (cam["position"] != null || cam["look_at"] != null || cam["zoom"] != null)
-                    {
-                        part = "camera";
-                        var name = cam["camera"]?.GetValue<string>() ?? l.Scene.CurrentCamera?.Name ?? throw new ArgumentException("The scene has no camera.");
-                        foreach (var (key, _) in cam)
-                            if (key is not ("camera" or "position" or "look_at" or "zoom")) throw new ArgumentException($"camera with position or look_at has no \"{key}\" (give items to fit instead).");
-                        if (cam["zoom"] is { } zoom) Call("set_item", new JsonObject { ["item"] = name, ["zoom"] = zoom.DeepClone() }, "camera");
-                        if (cam["position"] is { } pos) Call("set_transform", new JsonObject { ["item"] = name, ["position"] = pos.DeepClone(), ["key"] = false }, "camera");
-                        if (cam["look_at"] is { } at)
-                            Call("look_at", at is JsonArray ? new JsonObject { ["item"] = name, ["point"] = at.DeepClone(), ["key"] = false }
-                                : new JsonObject { ["item"] = name, ["target"] = at.DeepClone(), ["key"] = false }, "camera");
-                        made["camera"] = name;
-                    }
-                    else made["camera"] = Call("frame_items", cam, "camera (frame_items)");
-                }
-
                 if (plan["steps"] is { } steps)
                 {
                     var said = new JsonArray();
@@ -117,6 +99,25 @@ public sealed partial class LightWaveTools
                     var r = Call("animate", new JsonObject { ["moves"] = motion.DeepClone() }, "motion");
                     made["motion"] = r["moves"]?.AsArray().Count;
                     if (r["note"] is { } note) made["frames_note"] = note.DeepClone();
+                }
+
+                if (plan["camera"] is { } camera)
+                {
+                    var cam = Obj(camera, "camera");
+                    if (cam["position"] != null || cam["look_at"] != null || cam["zoom"] != null)
+                    {
+                        part = "camera";
+                        var name = cam["camera"]?.GetValue<string>() ?? l.Scene.CurrentCamera?.Name ?? throw new ArgumentException("The scene has no camera.");
+                        foreach (var (key, _) in cam)
+                            if (key is not ("camera" or "position" or "look_at" or "zoom")) throw new ArgumentException($"camera with position or look_at has no \"{key}\" (give items to fit instead).");
+                        if (cam["zoom"] is { } zoom) Call("set_item", new JsonObject { ["item"] = name, ["zoom"] = zoom.DeepClone() }, "camera");
+                        if (cam["position"] is { } pos) Call("set_transform", new JsonObject { ["item"] = name, ["position"] = pos.DeepClone(), ["key"] = false }, "camera");
+                        if (cam["look_at"] is { } at)
+                            Call("look_at", at is JsonArray ? new JsonObject { ["item"] = name, ["point"] = at.DeepClone(), ["key"] = false }
+                                : new JsonObject { ["item"] = name, ["target"] = at.DeepClone(), ["key"] = false }, "camera");
+                        made["camera"] = name;
+                    }
+                    else made["camera"] = Call("frame_items", cam, "camera (frame_items)");
                 }
 
                 if (plan["camera_moves"] is { } moves)
@@ -287,7 +288,8 @@ public sealed partial class LightWaveTools
         switch (rig)
         {
             case "three_point":
-                Light("Key", "spot", new Vec3(-2.2, 2.6, -2.4), [255, 244, 229], 1.1, more: new JsonObject { ["cone_angle"] = 35, ["edge_angle"] = 10, ["radius"] = Math.Round(0.08 * size, 4) });
+                // A distant key, so things that move keep their light (a spot's pool would stay behind).
+                Light("Key", "distant", new Vec3(-2.2, 2.6, -2.4), [255, 244, 229], 1.05);
                 Light("Fill", "distant", new Vec3(2.5, 0.8, -2), [214, 226, 255], 0.35, shadows: false);
                 Light("Rim", "distant", new Vec3(0.8, 2.2, 3), [255, 255, 255], 0.7, shadows: false);
                 calls.Call("set_scene", new JsonObject { ["ambient_intensity"] = 0.1 });

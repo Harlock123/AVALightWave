@@ -1,9 +1,13 @@
 # Milestone: scenes from a description
 
-**Status (12 November 2026):** under way. Stage 1 done: `make_object` (nine shapes), `build_object`, `edit_object`,
+**Status (12 November 2026):** done. Stage 1 done: `make_object` (nine shapes), `build_object`, `edit_object`,
 `set_object_surface`, `get_object_surfaces` and the two modeling-tool lists, on the engine's tools through an
 in-process caller (`EngineCalls.cs`). Stage 2 done: `animate` (twenty kinds, in `Motion.cs`) and `camera_move`;
 a `with` move lasts as long as the one it runs with, and handheld is a jitter modifier rather than keys.
+Stage 4 done: six recipes made from nothing (`SceneRecipes.cs`), the instructions and the AI Chat's prompt, and the
+README's Claude Code setup; the server is registered on this machine. Done. In `build_scene` the camera is placed
+after the motion (so it fits where things go), and the three-point rig's key is a distant light (a spot's pool would
+stay behind a moving subject).
 Stage 3 done: `build_scene`, `frame_items` and `check_shot` (`ShotTools.cs`, `Shot.cs`). Bounds are each object's
 box around its base shape (deformations aside), so overlap and ground checks are by boxes.
 

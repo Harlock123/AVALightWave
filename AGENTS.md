@@ -64,7 +64,12 @@ python3 tools/make_icon.py                        # redraws the icon
     the `AVALightWave` app-data folder) and `LightWaveHub.cs` (AVALightWave's end of the hub).
 - `src/AVALightWave.Mcp/`: no UI. `LightWaveServer.cs` is the profile (`ToolGroups.Scene`, descriptions adjusted, the
   instructions, the live pipe `AVALightWave-mcp-<user>`), `LightWaveTools.cs` its own tools, `LightWaveRecipes.cs` its
-  recipes (the engine's `Recipes.Recipe` builder), `LightWaveChat.cs` the chat's prompt and core tools.
+  recipes (the engine's `Recipes.Recipe` builder), `LightWaveChat.cs` the chat's prompt and core tools. Scenes from a
+  description (`AI_SCENES.md`): `EngineCalls.cs` (`InlineHost`, which runs host work at once inside another tool's
+  work, and `EngineCaller`, which calls the engine's or AVALightWave's tools in process by MCP name with JSON
+  arguments), `MakingTools.cs` (make_object, build_object, edit_object, surfaces: the engine's modeling calls on
+  documents of their own), `Motion.cs` and `AnimateTools.cs` (animate's moves as keys, camera_move), `Shot.cs` and
+  `ShotTools.cs` (build_scene, frame_items, check_shot), `SceneRecipes.cs` (the recipes made from nothing).
 - `src/AVALightWave/`: the window. `MainWindow.cs` (the layout, modes, panels, keys, files, hub, agents, auto-save,
   macros and OpenGL), `Panels.cs` (the panels; Objects, Bones, Lights and Camera are one `ItemsPanel` per edit mode
   around the engine's `ItemPropertiesPanel`, with `ItemExtras.cs` adding a light's shadow type, lens flare and
@@ -90,8 +95,12 @@ python3 tools/make_icon.py                        # redraws the icon
 - **The hub is local and per user.** `HubProtocol` pipes are made with `PipeOptions.CurrentUserOnly`; messages name
   files by full path and carry nothing else; hand-over copies go in the owner-only `hub/` folder. Don't add a network
   listener, and keep every call short (the other app may not be there).
-- **Agents are Layout-only.** The profile serves `ToolGroups.Scene` and AVALightWave's own tools; a new engine tool that
-  needs only the scene goes in `ToolGroups.Scene` (in the engine), and AVALightWave serves it with no change here. A new
+- **Agents get the scene, not the Modeler.** The profile serves `ToolGroups.Scene` and AVALightWave's own tools; a new
+  engine tool that needs only the scene goes in `ToolGroups.Scene` (in the engine), and AVALightWave serves it with no
+  change here. Modeling reaches agents only inside AVALightWave's own tools (build_object, edit_object), run by
+  `EngineCaller` on a document of the tool's own, never on the window's. A tool that calls other tools from inside its
+  work does it through `EngineCaller` on an `InlineHost` (never `host.RunSceneAsync` again: it would wait on itself),
+  so everything is one undo step and a failure anywhere puts it all back. A new
   tool of AVALightWave's goes in `LightWaveTools` (through `host.RunSceneAsync`, one undo step, errors as
   `McpException`), with a test, and in the README's tool table. A recipe goes in `LightWaveRecipes` and in
   `RecipeTests`' cases and checks.

@@ -27,6 +27,9 @@ All notable changes to AVALightWave are recorded here. The format follows
 - **Whole shots for agents** (stage 3): `build_scene` builds a shot from one plan (settings, objects, a lights rig,
   the camera, motion and camera moves) as one undo step, all or nothing; `frame_items` fits items in the camera's
   picture; `check_shot` lists what to fix before rendering, without rendering.
+- **Six recipes for scenes made from nothing** (stage 4): a bouncing ball, a solar system, a product reveal, falling
+  dominoes, a rocket launch with smoke and a row of dancing shapes, each one build_scene plan, checked and rendered.
+  The README says how to add AVALightWave to Claude Code.
 - **What the AI Chat uses**, shown as it's used (from the engine): a line under the input with the chat's tokens and
   estimated cost, updated while a request runs; a tag after each turn with its requests, tokens, pictures and
   estimate; and in Setup… the prices (changeable), today's and this month's totals with Reset, and a budget that

@@ -14,7 +14,7 @@ namespace AVALightWave.Mcp;
 /// the server, call by call.
 /// </summary>
 [McpServerPromptType]
-public static class LightWaveRecipes
+public static partial class LightWaveRecipes
 {
     [McpServerPrompt(Name = "stage_object", Title = "Stage an object")]
     [Description("Stages an object file for a still: loads it, lights it with a key, a fill and a rim, frames the camera on it, and renders a frame.")]

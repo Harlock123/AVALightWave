@@ -29,6 +29,12 @@ public class RecipeTests
         { "rig_from_skelegons", "{}" },
         { "follow_and_jitter", """{"lag": "6"}""" },
         { "morph_and_macro", """{"crates": "5"}""" },
+        { "ball_from_nothing", """{"frames": "30", "bounces": "2", "width": "48"}""" },
+        { "solar_system", """{"frames": "24", "width": "48"}""" },
+        { "product_reveal", """{"frames": "24", "width": "48"}""" },
+        { "domino_run", """{"count": "5", "gap": "3", "width": "48"}""" },
+        { "rocket_launch", """{"frames": "30", "width": "48"}""" },
+        { "dancing_shapes", """{"frames": "24", "beat": "12", "width": "48"}""" },
     };
 
     internal static List<(string Tool, Dictionary<string, object?> Args)> CallsIn(string text) =>
@@ -48,7 +54,7 @@ public class RecipeTests
         using var b = new Bench();
         await using var s = await b.Serve();
         var tools = (await s.Client.ListToolsAsync(cancellationToken: Cancel)).Select(t => t.Name).ToHashSet();
-        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm", "clone_stagger", "light_beams", "composite_shot", "rig_from_skelegons", "follow_and_jitter", "morph_and_macro" })
+        foreach (var name in new[] { "stage_object", "object_turntable", "camera_flyby", "light_sweep", "render_on_farm", "clone_stagger", "light_beams", "composite_shot", "rig_from_skelegons", "follow_and_jitter", "morph_and_macro", "ball_from_nothing", "solar_system", "product_reveal", "domino_run", "rocket_launch", "dancing_shapes" })
         {
             var prompt = (await s.Client.ListPromptsAsync(cancellationToken: Cancel)).Single(p => p.Name == name);
             Assert.False(string.IsNullOrWhiteSpace(prompt.Description));
@@ -83,6 +89,7 @@ public class RecipeTests
         }
         Assert.NotNull(last);
         Assert.True(Colours(last) > 8, $"{name}'s last picture is blank.");
+        if (Environment.GetEnvironmentVariable("AVALIGHTWAVE_SHOT_OUT") is { Length: > 0 } dir) File.WriteAllBytes(Path.Combine(dir, name + ".png"), last);
         Check(name, b);
     }
 
@@ -91,6 +98,66 @@ public class RecipeTests
         var scene = b.Scene;
         switch (name)
         {
+            case "ball_from_nothing":
+            {
+                var ball = scene.Find("Ball")!;
+                Assert.Equal(2, ball.PositionAt(1).Y, 6);
+                Assert.Equal(1.5, ball.PositionAt(30).X, 6);
+                Assert.Equal(["Key", "Fill", "Rim"], scene.Lights.Select(l => l.Name));
+                Assert.Equal(1, b.Host.Layout.History.Count);
+                break;
+            }
+            case "solar_system":
+            {
+                var blue = scene.Find("Blue")!;
+                var moon = scene.Find("Moon")!;
+                Assert.Same(blue, moon.Parent);
+                foreach (var f in new[] { 1.0, 9, 17, 24 })
+                {
+                    Assert.InRange(blue.WorldPosition(f).Length, 2.95, 3.05);
+                    Assert.InRange((moon.WorldPosition(f) - blue.WorldPosition(f)).Length, 0.52, 0.58);
+                }
+                Assert.True((blue.WorldPosition(1) - blue.WorldPosition(12)).Length > 3);
+                break;
+            }
+            case "product_reveal":
+            {
+                var gem = scene.Find("Gem")!;
+                Assert.Equal(0.01, gem.ScaleAt(1).X, 6);
+                Assert.Equal(1, gem.ScaleAt(7).X, 6);
+                var eye = scene.CurrentCamera!;
+                Assert.True((eye.WorldPosition(24) - gem.WorldPosition(24)).Length < (eye.WorldPosition(1) - gem.WorldPosition(1)).Length * 0.6);
+                break;
+            }
+            case "domino_run":
+            {
+                Assert.Equal(5, scene.Objects.Count(o => o.Name.StartsWith("Domino", StringComparison.Ordinal)));
+                var first = scene.Find("Domino 1")!;
+                var lastOne = scene.Find("Domino 5")!;
+                Assert.Equal(0, first.RotationAt(1).Y, 6);
+                Assert.True(first.RotationAt(9).Y > 20);
+                Assert.Equal(0, lastOne.RotationAt(12).Y, 6);
+                Assert.Equal(90, lastOne.RotationAt(scene.LastFrame).Y, 6);
+                break;
+            }
+            case "rocket_launch":
+            {
+                var rocket = (ObjectItem)scene.Find("Rocket")!;
+                Assert.True(rocket.BaseMesh().Polygons.Count > 50);
+                Assert.Equal(["Hull", "Trim"], rocket.Document!.Surfaces.Skip(1).Select(s => s.Name).Order());
+                Assert.True(rocket.PositionAt(30).Y > 10);
+                Assert.NotNull(((ObjectItem)scene.Find("Exhaust")!).Particles);
+                break;
+            }
+            case "dancing_shapes":
+            {
+                Assert.Equal(6, scene.Objects.Count());
+                var bouncer = scene.Find("Bouncer")!;
+                Assert.Equal(0, bouncer.PositionAt(12.5).Y, 6);   // two beats of 11.5 frames: landing in the middle
+                Assert.True(bouncer.PositionAt(6.75).Y > 0.7);
+                Assert.Equal(360, scene.Find("Popper")!.RotationAt(24).X, 6);
+                break;
+            }
             case "stage_object":
                 Assert.Equal("Subject", scene.Objects.Single().Name);
                 Assert.Equal(8, scene.Objects.Single().BaseMesh().Points.Count);

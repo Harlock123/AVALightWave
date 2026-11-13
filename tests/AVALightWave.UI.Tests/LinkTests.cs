@@ -121,6 +121,24 @@ public class LinkTests
             Assert.DoesNotContain(w.Session.Scene.Lights, l => l.Name == "Spot");
             var status = Call(client, "hub_status");
             Assert.False((bool?)status["on_hub"]);
+            // A whole shot from a plan, in the open window: one step, which the person's Ctrl+Z takes back.
+            int items = w.Session.Scene.Items.Count;
+            var built = Call(client, "build_scene", new
+            {
+                plan = new
+                {
+                    objects = new object[] { new { shape = "ground" }, new { shape = "ball", name = "Ball", color = new[] { 220, 40, 30 }, position = new[] { 2.5, 0, 0 } } },
+                    lights = new { rig = "three_point", keep_lights = true },
+                    motion = new[] { new { item = "Ball", kind = "bounce", height = 1.5, start = 1, end = 40 } },
+                    camera = new { items = new[] { "all" }, start = 1, end = 40, from = "three_quarter" },
+                },
+            });
+            Assert.Equal(items + 5, w.Session.Scene.Items.Count);
+            Assert.Equal(1.5, w.Session.Scene.Find("Ball")!.PositionAt(1).Y, 6);
+            Assert.True((bool?)built["check"]!["ok"], built["check"]!.ToJsonString());
+            Assert.Equal("Agent: built a scene", w.Session.History.UndoLabel);
+            Ui.Key(w, Key.Z, RawInputModifiers.Control);
+            Assert.Equal(items, w.Session.Scene.Items.Count);
         }
         finally
         {
