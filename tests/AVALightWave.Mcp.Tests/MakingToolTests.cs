@@ -169,4 +169,37 @@ public class MakingToolTests
         Assert.NotNull(b.Scene.Find("Ball"));
         Assert.True(((ObjectItem)b.Scene.Find("Ball")!).BaseMesh().Polygons.Count > 0);
     }
+
+    [Fact]
+    public async Task A_figure_built_with_skelegons_and_auto_weights_gets_bones_that_follow_its_maps()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        // A column 2 m tall in 16 rows; two skelegons up its middle (the box's points come first: 2 × 17 × 2 = 68).
+        var r = await s.Client.Json("build_object", new
+        {
+            name = "Figure",
+            steps = new object[]
+            {
+                new { call = "set_symmetry", args = new { axis = "x" } },
+                new { tool = "Box", @params = new Dictionary<string, object> { ["Size"] = new[] { 0.4, 2, 0.3 }, ["Center"] = new[] { 0, 1.0, 0 }, ["SegmentsY"] = 16 } },
+                new { call = "add_points", args = new { points = new[] { new[] { 0.0, 0.1, 0 }, new[] { 0.0, 1, 0 }, new[] { 0.0, 1.9, 0 } } } },
+                new { call = "add_polygons", args = new { polygons = new[] { new[] { 68, 69 } }, surface = "Skelegon_Lower" } },
+                new { call = "add_polygons", args = new { polygons = new[] { new[] { 69, 70 } }, surface = "Skelegon_Upper" } },
+                new { call = "auto_weights" },
+                new { call = "measure" },
+            },
+        });
+        Assert.Equal("Figure", (string?)r["name"]);
+        var rig = await s.Client.Json("skelegons_to_bones", new { @object = "Figure" });
+        var bones = rig["bones"]!.AsArray();
+        Assert.Equal(["Lower", "Upper"], bones.Select(x => (string?)x!["weight_map"]));
+        // Bend the upper bone: the column's top moves, its bottom doesn't.
+        await s.Client.Json("set_transform", new { item = "Upper", frame = 1, rotation = new[] { 0, 60, 0 }, key = false });
+        var fig = b.Scene.Objects.Single(o => o.Name == "Figure");
+        var rest = fig.BaseMesh().Points;
+        var bent = fig.DeformedMesh(1).Points;
+        Assert.All(Enumerable.Range(0, 68).Where(i => rest[i].Y < 0.2), i => Assert.True((bent[i] - rest[i]).Length < 0.01));
+        Assert.Contains(Enumerable.Range(0, 68).Where(i => rest[i].Y > 1.9), i => (bent[i] - rest[i]).Length > 0.3);
+    }
 }

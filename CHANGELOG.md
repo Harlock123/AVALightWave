@@ -13,6 +13,11 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Added
 
+- **Rigged objects and the engine's new modeling aids** in `build_object` and `edit_object` steps: `set_symmetry`,
+  `set_weights`, `get_weights`, `auto_weights` (a weight map per skelegon), `sculpt` (brushes along a stroke), `measure`
+  and `copy_layer`. A bone made by `skelegons_to_bones` follows the weight map of its name, so a figure built with
+  skelegons and `auto_weights` bends only where each bone should; `set_item` takes a bone's `weight_map`. The engine
+  (AVA Modeler) also brings normal maps in renders, instances, and glTF skins, morph targets and more of its maps.
 - **A live render view**: F8 (Render › Live Render View), or Render in a pane's view list, ray-traces the camera's view
   in that pane as you work: a rough picture at once, refining to 16 denoised rays a pixel, with a counter, starting
   again whenever the scene, the frame or the camera changes. It runs on a worker below normal priority.

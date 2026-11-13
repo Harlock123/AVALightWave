@@ -106,7 +106,9 @@ python3 tools/make_icon.py                        # redraws the icon
 - **Agents get the scene, not the Modeler.** The profile serves `ToolGroups.Scene` and AVALightWave's own tools; a new
   engine tool that needs only the scene goes in `ToolGroups.Scene` (in the engine), and AVALightWave serves it with no
   change here. Modeling reaches agents only inside AVALightWave's own tools (build_object, edit_object), run by
-  `EngineCaller` on a document of the tool's own, never on the window's. A tool that calls other tools from inside its
+  `EngineCaller` on a document of the tool's own, never on the window's. The calls a step may make are
+  `LightWaveTools.ModelingSteps`: add an engine modeling call there (and to build_object's description) for agents to
+  reach it, never one that opens, saves or renders files. A tool that calls other tools from inside its
   work does it through `EngineCaller` on an `InlineHost` (never `host.RunSceneAsync` again: it would wait on itself),
   so everything is one undo step and a failure anywhere puts it all back. A new
   tool of AVALightWave's goes in `LightWaveTools` (through `host.RunSceneAsync`, one undo step, errors as
