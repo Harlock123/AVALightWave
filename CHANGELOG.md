@@ -7,6 +7,16 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ### Changed
 
+- **The engine** is AVA Modeler 0.2 (`0d4085e`, v0.2.0 and a fix for hosts with no scene, which build steps run on).
+  Agents get its tools for working in steps: `batch` (one undo step, all or nothing, with `dry_run`), checkpoints
+  (`checkpoint`, `list_checkpoints`, `restore_checkpoint`, `diff`, `render_checkpoint`; kept on disk with `persist`),
+  a recording and steps files with parameters (`get_recording`, `save_steps`, `run_steps`), locks on scene items and the
+  list of connected agents (`lock`, `unlock`, `list_locks`, `list_agents`) and background jobs with progress
+  (`start_job`, `job_status`, `job_result`, `cancel_job`): 112 tools in all. Answers come as structured content too,
+  errors carry a kind, and the scene, its history, checkpoints, locks and agents are resources to read and subscribe
+  to. The AI Chat panel gets Undo this reply kept with a saved chat, the Timeline of each reply's changes,
+  and a note to the model when the person changed the scene meanwhile.
+
 - **The engine** is AVA Modeler with its 3D printing slicer. STL files are now read as millimetres, as slicers and
   other programs write them, so an STL object loads at its real size in metres (it used to load 1000 times too big);
   STL saved from here is written in millimetres too.
