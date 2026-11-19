@@ -202,4 +202,28 @@ public class MakingToolTests
         Assert.All(Enumerable.Range(0, 68).Where(i => rest[i].Y < 0.2), i => Assert.True((bent[i] - rest[i]).Length < 0.01));
         Assert.Contains(Enumerable.Range(0, 68).Where(i => rest[i].Y > 1.9), i => (bent[i] - rest[i]).Length > 0.3);
     }
+
+    [Fact]
+    public async Task A_built_SubPatch_cage_with_unwrapped_uvs_renders_smooth_and_bakes_a_light_map()
+    {
+        using var b = new Bench();
+        await using var s = await b.Serve();
+        await s.Client.Json("build_object", new
+        {
+            name = "Pebble",
+            steps = new object[]
+            {
+                new { tool = "Box", @params = new Dictionary<string, object> { ["Size"] = new[] { 1.0, 0.6, 0.8 } } },
+                new { call = "unwrap_uvs", args = new { map = "UV" } },
+                new { call = "set_subpatch", args = new { mode = "on" } },
+            },
+        });
+        var pebble = b.Scene.Objects.Single(o => o.Name == "Pebble");
+        Assert.True(pebble.HasSubPatches);
+        Assert.Equal(6 * 16, b.Scene.Evaluate(1).Objects.Single(o => o.Item == pebble).Mesh.Polygons.Count);
+        Assert.Equal(6 * 64, b.Scene.Evaluate(1, render: true).Objects.Single(o => o.Item == pebble).Mesh.Polygons.Count);
+        await s.Client.Json("add_light", new { type = "point", position = new[] { 0, 2, -1 } });
+        var baked = await s.Client.Json("bake_lighting", new { @object = "Pebble", size = 32, samples = 2 });
+        Assert.True((int)baked["pixels_covered"]! > 0);
+    }
 }

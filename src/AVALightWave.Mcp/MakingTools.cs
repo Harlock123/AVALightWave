@@ -27,6 +27,8 @@ public sealed partial class LightWaveTools
         "get_document", "check_mesh",
         // Modeling aids: symmetry, weight maps for bones (an automatic rig from skelegons), sculpting and measuring.
         "set_symmetry", "set_weights", "get_weights", "auto_weights", "sculpt", "measure", "copy_layer",
+        // UVs along seams, and SubPatch surfaces with creases (shown and rendered smooth in the scene).
+        "unwrap_uvs", "set_subpatch", "set_creases",
     ];
 
     /// <summary>The shapes make_object makes.</summary>

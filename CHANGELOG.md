@@ -3,7 +3,29 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] - 2026-11-19
+
+### Added
+
+- **The engine's second round of tools** (AVA Modeler 0.4), in `build_object` and `edit_object` steps: `unwrap_uvs`
+  (UVs cut along seams and laid flat keeping their angles, packed into the square), `set_subpatch` and `set_creases`
+  (SubPatch cages shown, rendered and exported as their smooth surface, with semi-sharp creases), and through `run_tool`
+  Quad Remesh (quads that follow the shape), Shrinkwrap, Spin Edge, Dissolve Edges and Weld.
+- **SubPatch objects** subdivide at a display level in the views and a render level in renders (`set_item`
+  `subpatch_level`, `subpatch_render_level`; LightWave 6's `SubPatchLevel` in .lws).
+- **Deformers**: `add_deformer`, `set_deformer`, `remove_deformer`: live bend, twist, taper, shear, squash and lattice
+  on an object, each with a keyable amount (`deformer.<n>.amount`), kept in .avascene.
+- **Global illumination**: bounced light, path traced, off by default (Scene Settings, `set_scene` `gi`,
+  `gi_bounces`, `gi_samples`, `gi_strength`, `gi_backdrop`).
+- **Light maps**: `bake_lighting` bakes an object's lighting through its UVs into a PNG.
+- **Motion capture**: `load_bvh` puts a .bvh capture on an object's bones, matched by name or a map and retargeted
+  from the capture's rest pose to the rig's: 117 tools in all.
+
+### Changed
+
+- **The engine** is AVA Modeler 0.4.0 (`27b7553`).
+
+## [0.3.0] - 2026-11-19
 
 ### Added
 
