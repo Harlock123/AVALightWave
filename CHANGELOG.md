@@ -5,7 +5,17 @@ All notable changes to AVALightWave are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- **AI agents on other computers.** Options › Allow AI agents on other computers opens the engine's network door: MCP
+  over HTTP at `/mcp` on port 8766, every request needing the access token (Copy Token, New Token; kept in its own
+  owner-only file), HTTPS with a certificate and key. `AVALightWave --mcp --http [ADDRESS:]PORT` does the same
+  headless, with `--token` and `--cert`/`--key`.
+
 ### Changed
+
+- **The engine** is AVA Modeler at `d6a22fc` (its network door). Downloads are about 12 MB bigger, since they now carry
+  ASP.NET Core's web server.
 
 - **The engine** is AVA Modeler 0.2 (`0d4085e`, v0.2.0 and a fix for hosts with no scene, which build steps run on).
   Agents get its tools for working in steps: `batch` (one undo step, all or nothing, with `dry_run`), checkpoints

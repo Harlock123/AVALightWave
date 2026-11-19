@@ -85,8 +85,8 @@ python3 tools/make_icon.py                        # redraws the icon
   (`ViewportLayout`, a Grid of four kept `ViewportPane`s, each a Panel holding a SceneView, its live render overlay
   (`ShowRender`, `Tick` for tests: headless timers don't run), its view list and an outline, with the engine's `GlSurface` inserted beneath the view at `ViewportPane.SurfaceIndex` while it uses
   OpenGL), `PreviewWindow.cs`, `RenderQueueWindow.cs`, `Requesters.cs` (Clone Item and Load from Scene),
-  `MotionOptions.cs`, `SceneEditor.cs`, `NumericRequester.cs`, `WindowAgents.cs` (the live MCP door and the chat's
-  host), `Program.cs` (`--mcp` and `--render-node` before Avalonia starts).
+  `MotionOptions.cs`, `SceneEditor.cs`, `NumericRequester.cs`, `WindowAgents.cs` (the live MCP door, the network
+  door and the chat's host), `Program.cs` (`--mcp` and `--render-node` before Avalonia starts).
 - `tests/`: xUnit v3. `AVALightWave.UI.Tests` uses `Avalonia.Headless.XUnit` with Skia, so it can capture screenshots,
   and links the engine's `FakeClaude`.
 
@@ -103,6 +103,11 @@ python3 tools/make_icon.py                        # redraws the icon
 - **The hub is local and per user.** `HubProtocol` pipes are made with `PipeOptions.CurrentUserOnly`; messages name
   files by full path and carry nothing else; hand-over copies go in the owner-only `hub/` folder. Don't add a network
   listener, and keep every call short (the other app may not be there).
+- **The network door is the engine's.** `NetworkListener` (AVA Modeler's Mcp) serves AVALightWave's profile when
+  Options allows it (`Preferences.AllowNetworkAgents`, the engine's type, with AVALightWave's port, 8766, when
+  `NetworkAgentsPort` is null) or on `--mcp --http`; the token is in `mcp-network-token` in the app-data folder
+  (`NetworkDoor` in `WindowAgents.cs`), a test window's only in memory. `MainWindow.SyncNetworkAsync` keeps it as
+  Options say. Every rule of AVA Modeler's about it applies (the token never shown, logged or saved elsewhere).
 - **Agents get the scene, not the Modeler.** The profile serves `ToolGroups.Scene` and AVALightWave's own tools; a new
   engine tool that needs only the scene goes in `ToolGroups.Scene` (in the engine), and AVALightWave serves it with no
   change here. Modeling reaches agents only inside AVALightWave's own tools (build_object, edit_object), run by

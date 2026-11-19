@@ -92,6 +92,12 @@ public sealed class MainWindow : Window
     /// <summary>The pipe agents reach the window on (tests give their own).</summary>
     internal string AgentPipe { get; set; } = LightWaveServer.PipeName;
 
+    /// <summary>The network door's token and addresses (the token's file only outside tests).</summary>
+    internal NetworkDoor Network { get; }
+
+    /// <summary>Why the network door didn't open the last time it tried, or null.</summary>
+    internal string? NetworkProblem { get; private set; }
+
     /// <summary>The chat's working folder (the Documents folder).</summary>
     internal string ChatRoot { get; set; } = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) is { Length: > 0 } docs
         ? docs : Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
@@ -164,6 +170,8 @@ public sealed class MainWindow : Window
             Hub.Launcher = new AppLauncher(HubProtocol.Modeler) { Start = _ => false };
         }
         Agents = new WindowAgents(Document, EditInModeler, () => (Hub.Running, Hub.Running && Hub.ModelerThere()), SetStatus);
+        Network = new NetworkDoor(Agents, forTests ? null : LightWaveOptions.Folder);
+        Network.Renewed += () => _ = SyncNetworkAsync();
         // The render queue: the person's own in the app-data folder; a test window's somewhere of its own (made only if used).
         LocalQueueFolder = forTests ? Path.Combine(Path.GetTempPath(), "avalightwave-queue-" + Guid.NewGuid().ToString("N")) : FarmFolder.DefaultQueue;
         _queueFolder = LocalQueueFolder;
@@ -278,6 +286,7 @@ public sealed class MainWindow : Window
             Chat.SaveHistory();
             _ = _chatTools.DisposeAsync().AsTask();
             _ = Agents.StopAsync();
+            _ = Agents.StopNetworkAsync();
             _ = Hub.StopAsync();
         };
     }
@@ -1439,6 +1448,52 @@ public sealed class MainWindow : Window
             _ = Agents.StopAsync();
             SetStatus("AI agents can no longer connect.");
         }
+        _ = SyncNetworkAsync();
+    }
+
+    private Task? _networkSync;
+    private bool _syncNetworkAgain;
+
+    /// <summary>
+    /// Opens, closes or reopens the network door to match Options (and the token): a change of address, port, folder,
+    /// certificate or token while it's open reopens it. One at a time; a change meanwhile runs again after, and the task
+    /// ends when the door is as Options now say.
+    /// </summary>
+    internal Task SyncNetworkAsync()
+    {
+        if (_networkSync is { IsCompleted: false })
+        {
+            _syncNetworkAgain = true;
+            return _networkSync;
+        }
+        return _networkSync = RunNetworkSync();
+    }
+
+    private async Task RunNetworkSync()
+    {
+        do
+        {
+            _syncNetworkAgain = false;
+            var p = Preferences;
+            var want = p.AllowNetworkAgents
+                ? new AVAModeler.Mcp.NetworkSettings(p.NetworkAgentsAddress, p.NetworkAgentsPort ?? Agents.Profile.NetworkPort, Network.Token, p.NetworkAgentsCertificate, p.NetworkAgentsKey)
+                : null;
+            string root = p.NetworkAgentsFolder ?? ChatRoot;
+            if (Agents.NetworkRunning && (want == null || want != Agents.NetworkSettings || root != Agents.NetworkRoot))
+            {
+                await Agents.StopNetworkAsync();
+                if (want == null) SetStatus("AI agents on other computers can no longer connect.");
+            }
+            NetworkProblem = null;
+            if (want != null && !Agents.NetworkRunning)
+            {
+                NetworkProblem = await Agents.StartNetworkAsync(want, root);
+                SetStatus(NetworkProblem is { } problem
+                    ? $"AI agents on other computers can't connect: {problem}"
+                    : $"AI agents on other computers may connect (MCP): {Agents.NetworkUrls.FirstOrDefault()}, with the access token from Options.");
+            }
+        }
+        while (_syncNetworkAgain);
     }
 
     // ───────────────────────────── starting and closing ─────────────────────────────

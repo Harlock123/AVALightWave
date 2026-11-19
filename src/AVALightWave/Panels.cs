@@ -630,6 +630,58 @@ public sealed class OptionsPanel : LayoutPanel
         ToolTip.SetTip(agents, "An agent set up with \"AVALightWave --mcp --attach\" can then work on the open scene: you see its work, and Ctrl+Z undoes it.");
         agents.IsCheckedChanged += (_, _) => { prefs.AllowAgents = agents.IsChecked == true; prefs.Save(); Window.SyncAgents(); };
         Children.Add(agents);
+        // The network door: agents on other computers, with the access token (kept in its own file, never in preferences).
+        var network = new CheckBox { Content = "Allow AI agents on other computers (MCP over the network, with an access token)", IsChecked = prefs.AllowNetworkAgents, Foreground = Look.Text, Name = "AllowNetworkAgents" };
+        ToolTip.SetTip(network, "Any MCP client on your network that has the token can then work on the open scene, as an agent on this computer can. Plain HTTP unless you give a certificate.");
+        network.IsCheckedChanged += (_, _) => { prefs.AllowNetworkAgents = network.IsChecked == true; prefs.Save(); _ = Window.SyncNetworkAsync().ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(Refresh), TaskScheduler.Default); };
+        Children.Add(network);
+        if (prefs.AllowNetworkAgents)
+        {
+            TextBox Setting(string? value, string placeholder, string name, Action<string?> set)
+            {
+                var box = new TextBox { Text = value ?? "", PlaceholderText = placeholder, FontSize = 11, Name = name };
+                var applied = box.Text;
+                void Apply()
+                {
+                    if (box.Text == applied) return;
+                    applied = box.Text;
+                    set(string.IsNullOrWhiteSpace(box.Text) ? null : box.Text.Trim());
+                    prefs.Save();
+                    _ = Window.SyncNetworkAsync().ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(Refresh), TaskScheduler.Default);
+                }
+                box.LostFocus += (_, _) => Apply();
+                box.KeyDown += (_, e) => { if (e.Key == Avalonia.Input.Key.Enter) Apply(); };
+                return box;
+            }
+            Children.Add(Label("Listen on address"));
+            Children.Add(Setting(prefs.NetworkAgentsAddress, "0.0.0.0 (every network), localhost, or one of this computer's", "NetworkAddress", v => prefs.NetworkAgentsAddress = v ?? "0.0.0.0"));
+            Children.Add(Label("Port"));
+            Children.Add(NumberBox(prefs.NetworkAgentsPort ?? Window.Agents.Profile.NetworkPort, v =>
+            {
+                if (v is < 1 or > 65535 || v != Math.Floor(v)) return;
+                prefs.NetworkAgentsPort = (int)v == Window.Agents.Profile.NetworkPort ? null : (int)v;
+                prefs.Save();
+                _ = Window.SyncNetworkAsync().ContinueWith(_ => Avalonia.Threading.Dispatcher.UIThread.Post(Refresh), TaskScheduler.Default);
+            }, "NetworkPort"));
+            Children.Add(Label("Working folder for network agents (Documents if empty)"));
+            Children.Add(Setting(prefs.NetworkAgentsFolder, "Documents", "NetworkFolder", v => prefs.NetworkAgentsFolder = v));
+            Children.Add(Label("HTTPS certificate and its private key (PEM files; plain HTTP if empty)"));
+            Children.Add(Setting(prefs.NetworkAgentsCertificate, "Certificate", "NetworkCertificate", v => prefs.NetworkAgentsCertificate = v));
+            Children.Add(Setting(prefs.NetworkAgentsKey, "Private key", "NetworkKey", v => prefs.NetworkAgentsKey = v));
+            var door = Window.Network;
+            Children.Add(Label("Access token"));
+            var token = new TextBlock { Text = PreferencesWindow.MaskToken(door.Token), Foreground = Look.Text, FontFamily = new FontFamily("monospace"), FontSize = 11, Name = "NetworkToken" };
+            Children.Add(token);
+            Children.Add(Buttons(
+                Look.MakeButton("Copy Token", async () =>
+                {
+                    if (TopLevel.GetTopLevel(this)?.Clipboard is { } clipboard) await Avalonia.Input.Platform.ClipboardExtensions.SetTextAsync(clipboard, door.Token);
+                }, "Copy the access token for an agent's setup"),
+                Look.MakeButton("New Token", () => { token.Text = PreferencesWindow.MaskToken(door.RenewToken()); }, "Make a new token: agents given the old one can no longer connect")));
+            Children.Add(Note(Window.Agents.NetworkRunning
+                ? "Agents connect to " + string.Join(" or ", door.Urls) + " with the header \"Authorization: Bearer <token>\"."
+                : "Not listening: " + (Window.NetworkProblem ?? "opening…")));
+        }
         Children.Add(Label("Animation"));
         var auto = new CheckBox { Content = "Auto Key when starting", IsChecked = options.AutoKey, Foreground = Look.Text };
         auto.IsCheckedChanged += (_, _) => { options.AutoKey = auto.IsChecked == true; options.Save(); };

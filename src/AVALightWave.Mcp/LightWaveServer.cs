@@ -83,6 +83,8 @@ public static class LightWaveServer
         ExtraPrompts = Prompts,
         HasModelerObject = false,
         PipeName = () => PipeName,
+        NetworkPort = 8766,
+        TokenVariable = "AVALIGHTWAVE_MCP_TOKEN",
         Program = "AVALightWave",
         Usage = Usage,
         NotRunning = NotRunning,
@@ -118,6 +120,7 @@ public static class LightWaveServer
 
     public const string Usage = """
         AVALightWave --mcp [--attach] [--root FOLDER]
+                           [--http [ADDRESS:]PORT [--token TOKEN] [--cert FILE --key FILE]]
 
           --mcp          Serve the Model Context Protocol on stdin and stdout for an AI agent, with no window: the
                          scene, object-making, lighting, animation and render tools.
@@ -125,6 +128,14 @@ public static class LightWaveServer
                          instead of a scene of the server's own.
           --root FOLDER  The working folder that object, scene and image paths start from, and that loading and
                          saving stay inside (default: the current folder).
+          --http [ADDRESS:]PORT
+                         Serve over the network instead of stdio (MCP Streamable HTTP at /mcp), headless, until
+                         stopped with Ctrl+C. ADDRESS is 0.0.0.0 (every network; the default), localhost or one of
+                         this computer's addresses; the port is 8766 unless given. Every agent works on one scene.
+          --token TOKEN  The access token agents must send ("Authorization: Bearer TOKEN"), 16 characters or
+                         more; else the AVALIGHTWAVE_MCP_TOKEN environment variable; else a new one, printed.
+          --cert FILE --key FILE
+                         Serve HTTPS with this certificate and private key (PEM files).
         """;
 
     /// <summary>The hub's pipe name for this app (for status lines).</summary>
