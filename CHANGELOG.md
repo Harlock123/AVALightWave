@@ -3,6 +3,14 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Deformers and global illumination are kept in .lws scenes** (engine `2eaf596`), as plugin sections only AVA reads
+  (`AVA_Deformers` on an object, `Plugin MasterHandler 1 AVA_GlobalIllumination` for the scene), which LightWave and
+  other readers skip; before, only .avascene kept them.
+
 ## [0.4.1] - 2026-11-19
 
 ### Added
