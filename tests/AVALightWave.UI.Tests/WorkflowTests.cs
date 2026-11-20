@@ -215,6 +215,76 @@ public class WorkflowTests
     }
 
     [AvaloniaFact]
+    public void Load_motion_capture_puts_a_bvh_on_the_chosen_objects_bones_as_one_undo_step()
+    {
+        using var bench = new Workbench();
+        var w = Ui.Open();
+        var crate = w.LoadObject(bench.Object("crate.lwo"))!;
+        // A rig at rest in the capture's pose: hips and spine up, the arm out along +X.
+        var (hips, arm) = w.Session.Edit("Rig", () =>
+        {
+            var sc = w.Session.Scene;
+            var h = sc.AddBone(crate, "Hips", new Vec3(0, 1, 0), new Vec3(0, -90, 0), 0.2);
+            var sp = sc.AddBone(crate, "Spine", new Vec3(0, 0, 0.2), Vec3.Zero, 0.1);
+            sp.Parent = h;
+            var a = sc.AddBone(crate, "LeftArm", new Vec3(0, 0.05, 0.1), new Vec3(90, 0, 0), 0.3);
+            a.Parent = sp;
+            return (h, a);
+        });
+        var path = bench.File("lift.bvh");
+        File.WriteAllText(path, """
+            HIERARCHY
+            ROOT mixamorig:Hips
+            {
+              OFFSET 0 100 0
+              CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation
+              JOINT mixamorig:Spine
+              {
+                OFFSET 0 20 0
+                CHANNELS 3 Zrotation Xrotation Yrotation
+                JOINT mixamorig:LeftArm
+                {
+                  OFFSET 5 10 0
+                  CHANNELS 3 Zrotation Xrotation Yrotation
+                  End Site
+                  {
+                    OFFSET 30 0 0
+                  }
+                }
+              }
+            }
+            MOTION
+            Frames: 2
+            Frame Time: 0.0333333
+            0 100 0 0 0 0   0 0 0   0 0 0
+            10 100 20 0 0 0   0 0 0   90 0 0
+            """);
+
+        // Nothing chosen: no target. A chosen bone stands for its object.
+        w.Session.Select(null);
+        Assert.Null(w.MotionCaptureTarget());
+        w.Session.Select(arm);
+        Assert.Same(crate, w.MotionCaptureTarget());
+
+        var rest = arm.RotationAt(2);
+        Assert.True(w.LoadMotionCapture(crate, path));
+        Assert.Contains("Loaded lift.bvh onto crate: 3 bone(s) keyed", w.Status);
+        Assert.NotEqual(rest, arm.RotationAt(2));
+        Assert.NotEqual(hips.PositionAt(1), hips.PositionAt(2));
+        w.Undo();
+        Assert.Equal(rest, arm.RotationAt(2));
+
+        // Not a BVH, or a rig nothing matches: said, and nothing changes.
+        var junk = bench.File("junk.bvh");
+        File.WriteAllText(junk, "not a capture");
+        Assert.False(w.LoadMotionCapture(crate, junk));
+        Assert.Contains("Can't load junk.bvh", w.Status);
+        var box = w.LoadObject(bench.Object("crate.lwo"))!;
+        Assert.False(w.LoadMotionCapture(box, path));
+        Assert.Contains("no bones", w.Status);
+    }
+
+    [AvaloniaFact]
     public void The_macros_menu_lists_the_folders_macros_and_runs_them_as_one_step()
     {
         using var bench = new Workbench();

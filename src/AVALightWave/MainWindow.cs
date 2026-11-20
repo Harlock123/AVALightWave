@@ -677,6 +677,7 @@ public sealed class MainWindow : Window
                     Item("C_lone Item…", () => OpenClone()),
                     Item("_Motion Options…", () => OpenMotionOptions()),
                     Item("Load Mo_tion…", () => { if (Session.Selected is { } i) _ = LoadMotionDialog(i); else SetStatus("Choose an item to load a motion onto."); }),
+                    Item("Load Motion _Capture…", () => { if (MotionCaptureTarget() is { } o) _ = LoadMotionCaptureDialog(o); else SetStatus("Choose an object with bones (or one of its bones) to load a motion capture onto."); }),
                     Item("Sa_ve Motion…", () => { if (Session.Selected is { } i) _ = SaveMotionDialog(i); else SetStatus("Choose an item whose motion to save."); }),
                     Item("S_kelegons → Bones", () => SkelegonsToBones((Session.Selected as Bone)?.Owner ?? Session.Selected as ObjectItem ?? CurrentObject)),
                     Item("_Remove Item", () => { if (Session.Selected is { } i) Session.Remove(i); })),
@@ -815,7 +816,8 @@ public sealed class MainWindow : Window
         The Lights panel sets a light's shadow type (ray traced or a shadow map), lens flare and volumetric beam; the
         Images panel keeps pictures and numbered sequences, which the Effects panel's Compositing puts behind and over the
         render. Items › Motion Options adds motion modifiers (lag, jitter, cycle, oscillate) and loads or saves .mot
-        motion files. The Macros menu runs Lua scene macros, each one undo step.
+        motion files; Items › Load Motion Capture puts a .bvh capture (Mixamo, CMU…) on the chosen object's bones,
+        matched by name. The Macros menu runs Lua scene macros, each one undo step.
 
         Ctrl+Z undoes any change to the scene, an AI agent's included. F8 ray-traces the active view live, F9 renders a frame, F10 an animation, F4 opens the
         AI Chat. Scenes save as LightWave .lws (objects by their files) or .avascene (everything).
@@ -1027,6 +1029,38 @@ public sealed class MainWindow : Window
             return true;
         }
         catch (Exception e) when (e is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            SetStatus($"Can't load {Path.GetFileName(path)}: {e.Message}");
+            return false;
+        }
+    }
+
+    private static readonly FilePickerFileType CaptureFiles = new("Motion capture (BVH)") { Patterns = ["*.bvh"] };
+
+    /// <summary>The object a motion capture goes onto: the chosen object, or the chosen bone's owner.</summary>
+    public ObjectItem? MotionCaptureTarget() => Session.Selected as ObjectItem ?? (Session.Selected as Bone)?.Owner;
+
+    /// <summary>Load Motion Capture: a .bvh retargeted onto an object's bones, as one undo step.</summary>
+    public async Task LoadMotionCaptureDialog(ObjectItem item)
+    {
+        var path = await Pick($"Load a motion capture onto {item.Name}'s bones", null, false, CaptureFiles);
+        if (path != null) LoadMotionCapture(item, path);
+    }
+
+    /// <summary>
+    /// Puts a motion capture on an object's bones, matched by name and keyed from the scene's first frame; says how many
+    /// bones matched. False (changing nothing) for a file that isn't a BVH, or a rig that nothing in it matches.
+    /// </summary>
+    public bool LoadMotionCapture(ObjectItem item, string path)
+    {
+        try
+        {
+            var r = Session.LoadMotionCapture(item, path, new RetargetOptions { StartFrame = Session.Scene.FirstFrame });
+            var unmatched = r.Unmatched.Count > 0 ? $" Not in the capture: {string.Join(", ", r.Unmatched)}." : "";
+            SetStatus($"Loaded {Path.GetFileName(path)} onto {item.Name}: {r.Matched.Count} bone(s) keyed, frames {r.FirstFrame:0.##} to {r.LastFrame:0.##}.{unmatched}");
+            return true;
+        }
+        catch (Exception e) when (e is IOException or InvalidDataException or InvalidOperationException or UnauthorizedAccessException or ArgumentException)
         {
             SetStatus($"Can't load {Path.GetFileName(path)}: {e.Message}");
             return false;
