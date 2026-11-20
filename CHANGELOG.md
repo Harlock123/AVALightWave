@@ -3,6 +3,15 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **`bake_lighting` lays the light map on the object's surfaces** (engine `da93590`): the map as the colour through
+  the UV map (multiplied in when baked without colour), luminosity 1 and diffuse 0, as one undo step, so the object
+  keeps its baked look without the lights. Baking again to the same file takes the old map off first; `hook_up: false`
+  only writes the PNG. Save the object (`save_object`) to keep the map in its .lwo; an .avascene keeps it anyway.
+
 ## [0.4.2] - 2026-11-19
 
 ### Changed
