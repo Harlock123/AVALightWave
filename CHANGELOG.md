@@ -3,6 +3,15 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **Quad Remesh follows the shape better** (engine `febd5e4`), in `build_object` and `edit_object` steps through
+  `run_tool`: the points are merged onto a lattice laid along the field before the triangles are paired, so on a
+  tilted cylinder 91% of the side edges run along it or round it within 10° (was 74%), with about a fifth of the
+  irregular points, and the quads come out at the edge length asked.
+
 ## [0.4.3] - 2026-11-19
 
 ### Changed
