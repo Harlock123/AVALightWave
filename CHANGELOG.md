@@ -3,6 +3,14 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **The AI Chat's setup names OpenAI and other cloud services** (engine `41ef68e`): the OpenAI-compatible choice is
+  for a server on this computer, on your network, or OpenAI and other cloud services with their own key. The usage
+  line drops "this turn" once a turn ends, and the chat's title no longer gets cut off in a narrow panel.
+
 ## [0.4.4] - 2026-11-20
 
 ### Changed
