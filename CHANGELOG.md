@@ -3,13 +3,17 @@
 All notable changes to AVALightWave are recorded here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.1] - 2026-11-19
 
 ### Added
 
 - **Items › Load Motion Capture…** puts a .bvh capture on the chosen object's bones (or the chosen bone's object),
   matched by name and keyed from the scene's first frame, as one undo step; the status line says how many bones
   matched and names any left as they were.
+
+### Changed
+
+- **The engine** is AVA Modeler 0.4.1 (`fd404ff`), whose own Layout gains Scene › Load Motion Capture… too.
 
 ## [0.4.0] - 2026-11-19
 
